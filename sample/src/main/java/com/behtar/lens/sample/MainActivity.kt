@@ -21,47 +21,44 @@ import kotlinx.coroutines.launch
 import okhttp3.Request
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    val scope = rememberCoroutineScope()
-                    Column(
-                        modifier = Modifier.padding(32.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = "Lens SDK Sample",
-                            style = MaterialTheme.typography.headlineMedium,
-                        )
-                        Text(
-                            text = "Tap 5 times anywhere to open the Lens dashboard",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Button(onClick = {
-                            scope.launch(Dispatchers.IO) {
-                                // Make a sample network request to see it in the Network Inspector
-                                val client = (application as SampleApp).okHttpClient
-                                val request = Request.Builder()
-                                    .url("https://httpbin.org/get")
-                                    .build()
-                                try {
-                                    client.newCall(request).execute().close()
-                                } catch (_: Exception) {
-                                    // Ignore network errors in sample
-                                }
-                            }
-                        }) {
-                            Text("Make Sample Request")
-                        }
-                        Button(onClick = { Lens.open() }) {
-                            Text("Open Lens Dashboard")
-                        }
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    setContent {
+      MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+          val scope = rememberCoroutineScope()
+          Column(
+              modifier = Modifier.padding(32.dp),
+              verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+              horizontalAlignment = Alignment.CenterHorizontally,
+          ) {
+            Text(
+                text = "Lens SDK Sample",
+                style = MaterialTheme.typography.headlineMedium,
+            )
+            Text(
+                text = "Tap 5 times anywhere to open the Lens dashboard",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = {
+                  scope.launch(Dispatchers.IO) {
+                    // Make a sample network request to see it in the Network Inspector
+                    val client = (application as SampleApp).okHttpClient
+                    val request = Request.Builder().url("https://httpbin.org/get").build()
+                    try {
+                      client.newCall(request).execute().close()
+                    } catch (_: Exception) {
+                      // Ignore network errors in sample
                     }
+                  }
+                }) {
+                  Text("Make Sample Request")
                 }
-            }
+            Button(onClick = { Lens.open() }) { Text("Open Lens Dashboard") }
+          }
         }
+      }
     }
+  }
 }

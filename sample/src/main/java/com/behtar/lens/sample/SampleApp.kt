@@ -7,21 +7,19 @@ import okhttp3.OkHttpClient
 
 class SampleApp : Application() {
 
-    lateinit var okHttpClient: OkHttpClient
-        private set
+  lateinit var okHttpClient: OkHttpClient
+    private set
 
-    override fun onCreate() {
-        super.onCreate()
+  override fun onCreate() {
+    super.onCreate()
 
-        // Install Lens with 5-tap activation
-        Lens.install(this) {
-            activationGesture = ActivationGesture.FIVE_TAP
-            showNotification = true
-        }
-
-        // Create OkHttpClient with Lens interceptor
-        okHttpClient = OkHttpClient.Builder()
-            .addInterceptor(Lens.getNetworkInterceptor())
-            .build()
+    // Install Lens with 5-tap activation
+    Lens.install(this) {
+      activationGesture = ActivationGesture.FIVE_TAP
+      showNotification = true
     }
+
+    // Create OkHttpClient with Lens interceptor
+    okHttpClient = OkHttpClient.Builder().addInterceptor(Lens.getNetworkInterceptor()).build()
+  }
 }
