@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Cache directory for exported logs (HAR, JSON) -->
+    <cache-path
+        name="lens_exports"
+        path="lens_exports/" />
+</paths>

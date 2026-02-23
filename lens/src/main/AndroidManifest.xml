@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- No special permissions required for the bubble! -->
+    <!-- The in-app bubble is injected into Activity's DecorView, no overlay permission needed -->
+
+    <application>
+        <!-- Lens Dashboard Activity -->
+        <activity
+            android:name=".internal.presentation.dashboard.LensDashboardActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Lens" />
+
+        <!-- Notification action receiver (Clear logs from notification) -->
+        <receiver
+            android:name=".internal.notification.LensNotificationReceiver"
+            android:exported="false" />
+
+        <!-- FileProvider for sharing exported logs via share sheet -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.lens.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/lens_file_paths" />
+        </provider>
+    </application>
+
+</manifest>

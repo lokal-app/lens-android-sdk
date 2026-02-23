@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lens_title">Lens</string>
+    <string name="lens_network">Network</string>
+    <string name="lens_preferences">Preferences</string>
+    <string name="lens_exceptions">Exceptions</string>
+    <string name="lens_environment">Environment</string>
+    <string name="lens_feature_flags">Feature Flags</string>
+    <string name="lens_quick_actions">Quick Actions</string>
+    <string name="lens_close">Close</string>
+</resources>

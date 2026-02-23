@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Lens" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/lens_primary</item>
+        <item name="colorOnPrimary">@color/lens_on_primary</item>
+        <item name="colorPrimaryContainer">@color/lens_primary_container</item>
+        <item name="colorSecondary">@color/lens_secondary</item>
+        <item name="android:statusBarColor">@color/lens_surface</item>
+        <item name="android:navigationBarColor">@color/lens_surface</item>
+    </style>
+</resources>
