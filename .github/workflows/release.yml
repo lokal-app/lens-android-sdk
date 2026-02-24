@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
+
+      - name: Build SDK modules
+        run: ./gradlew :lens-api:assemble :lens:assembleDebug :lens:assembleRelease :lens-noop:assembleRelease
+
+      - name: Run unit tests
+        run: ./gradlew :lens:testDebugUnitTest
+
+      - name: Publish to GitHub Packages
+        run: ./gradlew :lens-api:publishReleasePublicationToGitHubPackagesRepository :lens:publishReleasePublicationToGitHubPackagesRepository :lens-noop:publishReleasePublicationToGitHubPackagesRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            lens/build/outputs/aar/lens-release.aar
+            lens-noop/build/outputs/aar/lens-noop-release.aar
+            lens-api/build/libs/lens-api-*.jar

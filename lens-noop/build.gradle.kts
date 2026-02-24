@@ -57,6 +57,16 @@ dependencies {
 
 afterEvaluate {
     publishing {
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/lokal-app/lens-android-sdk")
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR") ?: providers.gradleProperty("GITHUB_USERNAME").orNull
+                    password = System.getenv("GITHUB_TOKEN") ?: providers.gradleProperty("GITHUB_TOKEN").orNull
+                }
+            }
+        }
         publications {
             create<MavenPublication>("release") {
                 from(components["release"])
@@ -68,7 +78,7 @@ afterEvaluate {
                 pom {
                     name.set("Lens No-Op")
                     description.set("No-op stubs for Lens Android debug SDK. Use in release builds for zero overhead.")
-                    url.set("https://github.com/behtar/lens-android-sdk")
+                    url.set("https://github.com/lokal-app/lens-android-sdk")
 
                     licenses {
                         license {

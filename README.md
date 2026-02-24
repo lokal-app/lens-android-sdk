@@ -1,31 +1,72 @@
-# Lens Android SDK
+# Lens
 
-On-device debug toolkit for Android apps. Inspect network traffic, view exceptions, monitor performance, edit SharedPreferences, switch environments, toggle feature flags — all from a floating bubble overlay, with zero code changes in production.
+**On-device debug toolkit for Android apps.**
 
-## Quick Start
+[![CI](https://github.com/lokal-app/lens-android-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/lokal-app/lens-android-sdk/actions/workflows/ci.yml)
+![Min SDK](https://img.shields.io/badge/minSdk-24-green)
+![Language](https://img.shields.io/badge/Kotlin-2.0%2B-purple)
+![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 
-**1. Add dependencies**
+Inspect network traffic, view exceptions, monitor performance, edit SharedPreferences, switch environments, toggle feature flags — all from a floating bubble overlay, with **zero impact on production builds**.
+
+---
+
+## Setup
+
+### 1. Add the GitHub Packages repository
+
+Add to your project's `settings.gradle.kts`:
 
 ```kotlin
-// build.gradle.kts (app module)
+dependencyResolutionManagement {
+    repositories {
+        // ... your other repositories
+        maven {
+            url = uri("https://maven.pkg.github.com/lokal-app/lens-android-sdk")
+            credentials {
+                username = providers.gradleProperty("GITHUB_USERNAME").orNull ?: ""
+                password = providers.gradleProperty("GITHUB_TOKEN").orNull ?: ""
+            }
+            content {
+                includeGroup("com.behtar.lens")
+            }
+        }
+    }
+}
+```
+
+Add credentials to `~/.gradle/gradle.properties` (one-time setup):
+
+```properties
+GITHUB_USERNAME=your-github-username
+GITHUB_TOKEN=ghp_your_personal_access_token
+```
+
+> **Token setup:** Go to [GitHub Settings > Fine-grained tokens](https://github.com/settings/tokens?type=beta) > New token. Set resource owner to `lokal-app`, select only `lens-android-sdk` repository, grant **Packages: Read-only** permission.
+
+### 2. Add dependencies
+
+```kotlin
+// app/build.gradle.kts
 debugImplementation("com.behtar.lens:lens:1.0.0")
 releaseImplementation("com.behtar.lens:lens-noop:1.0.0")
 ```
 
-**2. Install in Application.onCreate()**
+### 3. Initialize
 
 ```kotlin
 class MyApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Lens.install(this) {
-            activationGesture(ActivationGesture.FIVE_TAP)
+            activationGesture = ActivationGesture.FIVE_TAP
+            showNotification = true
         }
     }
 }
 ```
 
-**3. Add the network interceptor**
+### 4. Add the network interceptor
 
 ```kotlin
 val client = OkHttpClient.Builder()
@@ -33,69 +74,96 @@ val client = OkHttpClient.Builder()
     .build()
 ```
 
-That's it. Tap 5 times anywhere in your app to open the debug dashboard.
+**That's it.** Tap 5 times anywhere to open the debug dashboard.
 
-## Modules
+---
 
-| Artifact | Purpose | Size |
-|----------|---------|------|
-| `lens` | Full SDK with all plugins and UI | ~1.2 MB |
-| `lens-noop` | No-op stubs for release builds | ~11 KB |
-| `lens-api` | Pure-Kotlin interfaces (zero Android deps) | ~21 KB |
+## Artifacts
 
-Use `debugImplementation` for `lens` and `releaseImplementation` for `lens-noop`. The no-op variant has identical method signatures that return defaults and do nothing — zero overhead in production.
+| Artifact | Purpose | Use with |
+|----------|---------|----------|
+| `com.behtar.lens:lens` | Full SDK — all plugins, interceptors, and UI | `debugImplementation` |
+| `com.behtar.lens:lens-noop` | No-op stubs — identical API surface, zero behavior | `releaseImplementation` |
+| `com.behtar.lens:lens-api` | Pure-Kotlin interfaces — no Android dependency | Transitive (pulled automatically) |
+
+---
 
 ## Built-in Plugins
 
-| Plugin | Priority | Description |
-|--------|----------|-------------|
-| Network Inspector | 100 | HTTP request/response viewer with cURL export, HAR export, header redaction |
-| Global Search | 99 | Cross-plugin search across all log types |
-| App Info | 95 | Build info, device details, session metadata |
-| Performance | 85 | Real-time FPS, memory usage, jank frame detection with sparkline graphs |
-| Analytics Inspector | 80 | Intercepted analytics events and user properties |
-| Exceptions | 78 | Uncaught + handled exception log with stack traces, ANR detection |
-| Database Inspector | 75 | Browse SQLite databases and tables |
-| SharedPreferences | 70 | View and edit all SharedPreferences files |
-| Deep Link Tester | 60 | Test deep links without leaving the app |
-| Log Viewer | 55 | Timber log viewer with level filtering |
-| Cache Manager | 50 | View and clear app caches |
+| Plugin | Description |
+|--------|-------------|
+| **Network Inspector** | HTTP request/response viewer with cURL export, HAR export, header redaction |
+| **Global Search** | Cross-plugin search across all log types with 300ms debounce |
+| **App Info** | Build info, device details, session metadata |
+| **Performance Monitor** | Real-time FPS (Choreographer), memory usage, jank detection with sparkline graphs |
+| **Analytics Inspector** | Intercepted analytics events and user properties |
+| **Exception Tracker** | Uncaught + handled exceptions with stack traces, ANR detection (5s watchdog) |
+| **Database Inspector** | Browse and query SQLite databases |
+| **SharedPreferences Editor** | View and edit all SharedPreferences files |
+| **Deep Link Tester** | Fire deep links without leaving the app |
+| **Log Viewer** | Timber log viewer with level filtering |
+| **Cache Manager** | View and clear app caches |
 
-### Optional Plugins (Provider-based)
+### Provider-based Plugins
 
-These plugins appear only when you supply a provider:
+These appear only when you supply a provider implementation:
 
-| Plugin | Provider Interface | Description |
-|--------|--------------------|-------------|
-| Environment Switcher | `EnvironmentProvider` | Switch between server environments (e.g., prod/staging) with app restart |
-| Feature Flags | `FeatureFlagProvider` | View and toggle feature flags at runtime |
-| Quick Actions | `QuickActionsProvider` | Custom one-tap debugging shortcuts |
+| Plugin | Provider Interface |
+|--------|--------------------|
+| Environment Switcher | `EnvironmentProvider` |
+| Feature Flags Editor | `FeatureFlagProvider` |
+| Quick Actions | `QuickActionsProvider` |
+
+---
 
 ## Configuration
 
 ```kotlin
 Lens.install(this) {
-    // Activation
-    activationGesture(ActivationGesture.FIVE_TAP)  // FIVE_TAP, SHAKE, or NONE
+    // Activation gesture: FIVE_TAP (default), SHAKE, or NONE
+    activationGesture = ActivationGesture.FIVE_TAP
 
-    // Notification (sticky notification with request/error counts)
-    showNotification(true)  // default: true
+    // Sticky notification with live request/error counts
+    showNotification = true
 
-    // Remote kill switch (disable Lens without an app update)
-    remoteActivation(MyRemoteActivationProvider())
+    // Remote kill switch (disable Lens without app update)
+    remoteActivationProvider = FirebaseRemoteActivation("devtools_enabled")
 
-    // Security: redact sensitive headers in network logs
-    headerRedactor(HeaderRedactor { name ->
-        name.equals("Authorization", ignoreCase = true) ||
-        name.equals("X-Custom-Secret", ignoreCase = true)
-    })
+    // Redact sensitive headers in network logs
+    headerRedactor = HeaderRedactor { name ->
+        name.equals("Authorization", ignoreCase = true)
+    }
 
-    // Providers for optional plugins
-    environmentProvider(MyEnvironmentProvider())
-    featureFlagProvider(MyFeatureFlagProvider())
-    quickActionsProvider(MyQuickActionsProvider())
+    // Provider-based plugins
+    environmentProvider = MyEnvironmentProvider()
+    featureFlagProvider = MyFeatureFlagProvider()
+    quickActionsProvider = MyQuickActionsProvider()
 }
 ```
+
+### Activation Methods
+
+| Method | How |
+|--------|-----|
+| 5-tap | Tap anywhere 5 times quickly |
+| Shake | Shake the device |
+| Programmatic | `Lens.open()` |
+| Notification | Tap the sticky notification |
+| Floating bubble | Always visible — injected into every Activity's DecorView (no permissions needed) |
+
+---
+
+## WebView & WebSocket
+
+```kotlin
+// Capture WebView navigations
+webView.webViewClient = Lens.wrapWebViewClient(myWebViewClient)
+
+// Capture WebSocket frames
+val listener = Lens.wrapWebSocketListener(myListener)
+```
+
+---
 
 ## Custom Plugins
 
@@ -107,15 +175,10 @@ class MyDebugPlugin : ComposableLensPlugin {
     override val name = "My Debug Tool"
     override val icon = R.drawable.ic_my_debug
     override val description = "Custom debugging tool"
-    override val priority = 40  // 0-49 for custom plugins
-
-    override fun onInitialize(context: Context) {
-        // Called once when Lens initializes
-    }
+    override val priority = 40
 
     @Composable
     override fun Content() {
-        // Your Compose UI here
         Text("Hello from my plugin!")
     }
 }
@@ -126,7 +189,7 @@ Lens.registerPlugin(MyDebugPlugin())
 
 ### View Plugin (Experimental)
 
-For non-Compose consumers (React Native, Java, legacy View-based apps):
+For non-Compose consumers (React Native native modules, Java apps):
 
 ```kotlin
 @OptIn(LensExperimental::class)
@@ -137,166 +200,54 @@ class LegacyPlugin : ViewLensPlugin {
     override val description = "View-based debug tool"
 
     override fun createView(context: Context): View {
-        return LinearLayout(context).apply {
-            addView(TextView(context).apply { text = "Hello from Views" })
-        }
+        return TextView(context).apply { text = "Hello from Views" }
     }
 }
 ```
 
-## Provider Implementation Guide
-
-### EnvironmentProvider
-
-```kotlin
-class MyEnvironmentProvider : EnvironmentProvider {
-    private val envs = listOf(
-        Environment("Production", "https://api.example.com"),
-        Environment("Staging", "https://staging.example.com"),
-    )
-    private var current = envs[0]
-
-    override fun getEnvironments() = envs
-    override fun getCurrentEnvironment() = current
-    override fun setEnvironment(environment: Environment) { current = environment }
-    override fun onRestartRequested() {
-        // Restart the app to apply new environment
-        ProcessPhoenix.triggerRebirth(appContext)
-    }
-
-    // Optional: WebView environment presets
-    override fun getWebViewPresets(): List<Environment> {
-        return listOf(
-            Environment("WebView Prod", "https://web.example.com"),
-            Environment("WebView Staging", "https://web-staging.example.com"),
-        )
-    }
-}
-```
-
-### FeatureFlagProvider
-
-```kotlin
-class MyFeatureFlagProvider : FeatureFlagProvider {
-    override fun getFlags(): List<FeatureFlag> = listOf(
-        FeatureFlag("dark_mode", "Dark Mode", FlagType.BOOLEAN, true),
-        FeatureFlag("api_timeout", "API Timeout (ms)", FlagType.NUMBER, 5000),
-        FeatureFlag("welcome_msg", "Welcome Message", FlagType.STRING, "Hello!"),
-    )
-
-    override fun setFlag(id: String, value: Any) {
-        // Persist the flag value
-    }
-}
-```
-
-### RemoteActivationProvider
-
-```kotlin
-class FirebaseRemoteActivation(private val key: String) : RemoteActivationProvider {
-    override fun isEnabled(callback: (Boolean) -> Unit) {
-        FirebaseRemoteConfig.getInstance().fetchAndActivate()
-            .addOnCompleteListener {
-                callback(FirebaseRemoteConfig.getInstance().getBoolean(key))
-            }
-    }
-}
-```
+---
 
 ## Key-Value Settings Store
 
-Lens provides a generic key-value store for runtime configuration, usable by custom plugins:
+Runtime configuration store usable by custom plugins:
 
 ```kotlin
-// Write
 Lens.putString("my_key", "my_value")
 Lens.putBoolean("feature_enabled", true)
 
-// Read
 val value = Lens.getString("my_key", default = "fallback")
 val enabled = Lens.getBoolean("feature_enabled", default = false)
 ```
 
 Backed by SharedPreferences in debug builds, no-op in release.
 
-## WebView & WebSocket Support
-
-```kotlin
-// Wrap your WebViewClient to capture WebView navigations
-webView.webViewClient = Lens.wrapWebViewClient(myWebViewClient)
-
-// Wrap your WebSocketListener to capture WebSocket frames
-val listener = Lens.wrapWebSocketListener(myListener)
-```
+---
 
 ## Data Export
 
-The dashboard toolbar includes a Share button that exports:
-- **HAR 1.2** — Network logs in HTTP Archive format (importable into Chrome DevTools)
-- **JSON** — All logs (network, exceptions, analytics) as a single JSON file
+Share button on the dashboard toolbar exports:
+- **HAR 1.2** — importable into Chrome DevTools, Charles Proxy
+- **JSON** — all logs (network, exceptions, analytics) as a single file
 
-## Features
-
-### ANR Detection
-A background watchdog thread detects main thread blocks exceeding 5 seconds. When triggered, it captures the main thread's full stack trace and logs it as an exception entry — visible in the Exceptions plugin before the system ANR dialog appears.
-
-### Performance Monitoring
-Real-time metrics via Choreographer frame callbacks and Runtime memory polling:
-- Current FPS with 60-second sparkline history
-- Jank frame counter (frames > 16.67ms)
-- JVM heap usage (used/total/max) with history graph
-- Native heap tracking via `Debug.getNativeHeapAllocatedSize()`
-
-### Sticky Notification
-When enabled, shows a persistent notification with live request count and error count. Tap to open the dashboard; "Clear" action resets all logs.
-
-### Header Redaction
-Network logs automatically redact sensitive headers (`Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `Proxy-Authorization`). Customize via `HeaderRedactor` in config.
+---
 
 ## Architecture
 
 ```
-lens-api (Pure Kotlin, JVM)
-  ├── LensConfig, LensPlugin, ComposableLensPlugin, ViewLensPlugin
-  ├── EnvironmentProvider, FeatureFlagProvider, QuickActionsProvider
-  ├── HeaderRedactor, RemoteActivationProvider
-  └── AnalyticsEventListener
-
-lens (Android Library)
-  ├── api/       — Lens singleton, LensApi interface
-  ├── internal/
-  │   ├── core/          — LensImpl, PluginRegistry
-  │   ├── di/            — LensServiceLocator (no Hilt)
-  │   ├── data/          — Repositories + models (network, exceptions, analytics, websocket)
-  │   ├── interceptors/  — OkHttp, WebView, WebSocket, Exception, Timber, Analytics
-  │   ├── plugins/       — 11 built-in plugins + performance package
-  │   ├── presentation/  — Dashboard, bubble, search screens
-  │   ├── notification/  — Sticky notification manager
-  │   └── export/        — HAR + JSON export
-
-lens-noop (Android Library)
-  └── api/       — No-op stubs mirroring lens public API
+lens-api          Pure Kotlin module — interfaces, data classes, annotations
+lens              Android library — full implementation, all plugins, Compose UI
+lens-noop         Android library — no-op stubs matching the public API surface
 ```
 
-**No Hilt, no Dagger, no reflection** — Lens uses a lightweight internal service locator. It has zero impact on your app's DI graph.
+**No Hilt, no Dagger, no reflection.** Lens uses a lightweight internal service locator with zero impact on your app's DI graph.
 
-## Activation Methods
-
-| Method | Config | Description |
-|--------|--------|-------------|
-| 5-tap | `ActivationGesture.FIVE_TAP` | Tap anywhere 5 times quickly |
-| Shake | `ActivationGesture.SHAKE` | Shake the device |
-| Programmatic | `Lens.open()` | Open from code (e.g., a hidden settings button) |
-| Notification | `showNotification(true)` | Tap the sticky notification |
-| Floating bubble | Always on | Injected into every Activity's DecorView — no permissions needed |
+---
 
 ## ProGuard / R8
 
-Consumer ProGuard rules are bundled — no manual configuration needed. The rules keep:
-- All public API classes and interfaces
-- Plugin implementations (`ComposableLensPlugin`, `ViewLensPlugin`)
-- Provider implementations
-- Internal notification receiver
+Consumer rules are bundled — no manual configuration needed.
+
+---
 
 ## Comparison
 
@@ -304,26 +255,44 @@ Consumer ProGuard rules are bundled — no manual configuration needed. The rule
 |---------|------|---------|---------|----------|
 | Network inspector | Yes | Yes | Yes | Yes |
 | SharedPreferences editor | Yes | No | Yes | Yes |
-| Exception viewer | Yes | No | No | Yes |
-| ANR detection | Yes | No | No | No |
-| FPS/Memory monitoring | Yes | No | No | No |
+| Exception viewer + ANR | Yes | No | No | Yes* |
+| FPS / Memory monitoring | Yes | No | No | No |
 | Environment switcher | Yes | No | No | No |
 | Feature flag editor | Yes | No | No | No |
 | Analytics inspector | Yes | No | No | No |
+| Database inspector | Yes | No | Yes | No |
 | Global search | Yes | No | No | No |
-| Custom plugins | Yes | No | Yes | Yes |
-| No-op release variant | Yes | Yes | N/A | Yes |
-| No permissions needed | Yes | Yes | No (ADB) | Yes |
+| Custom plugin API | Yes | No | Yes | Yes |
 | HAR export | Yes | No | No | No |
-| No Hilt/Dagger required | Yes | Yes | Yes | No |
-| View-based plugin API | Yes | N/A | N/A | Yes |
+| No-op release variant | Yes | Yes | N/A | Yes |
+| No external tools needed | Yes | Yes | No (ADB) | Yes |
+| No DI framework required | Yes | Yes | Yes | No |
+
+---
 
 ## Requirements
 
-- **Min SDK**: 24 (Android 7.0)
-- **Compile SDK**: 36
-- **Kotlin**: 2.0+
-- **Jetpack Compose**: BOM-managed (for `lens` module; `lens-noop` has no Compose dependency)
+| | Version |
+|---|---------|
+| Min SDK | 24 (Android 7.0) |
+| Compile SDK | 36 |
+| Kotlin | 2.0+ |
+| Jetpack Compose | BOM-managed |
+
+---
+
+## Local Development
+
+To iterate on the SDK locally without publishing:
+
+```bash
+cd lens-android-sdk
+./gradlew publishToMavenLocal
+```
+
+Then temporarily add `mavenLocal()` above the GitHub Packages repository in your app's `settings.gradle.kts`. Maven Local takes priority, so your local build will be used.
+
+---
 
 ## License
 
