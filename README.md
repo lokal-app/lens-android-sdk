@@ -38,11 +38,11 @@ dependencyResolutionManagement {
 Add credentials to `~/.gradle/gradle.properties` (one-time setup):
 
 ```properties
-GITHUB_USERNAME=your-github-username
-GITHUB_TOKEN=ghp_your_personal_access_token
+GITHUB_USERNAME=<provided-by-sdk-maintainer>
+GITHUB_TOKEN=<provided-by-sdk-maintainer>
 ```
 
-> **Token setup:** Go to [GitHub Settings > Fine-grained tokens](https://github.com/settings/tokens?type=beta) > New token. Set resource owner to `lokal-app`, select only `lens-android-sdk` repository, grant **Packages: Read-only** permission.
+> **Credentials:** Contact the SDK maintainer (@AnuragJha-AJ) to get the shared read-only token. Do not generate your own — a single shared token is used across the team.
 
 ### 2. Add dependencies
 
