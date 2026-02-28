@@ -46,15 +46,48 @@ GITHUB_TOKEN=<provided-by-sdk-maintainer>
 
 ### 2. Add dependencies
 
+#### Application modules (`:app`)
+
+In your `app/build.gradle.kts`, use build-type-specific configurations:
+
 ```kotlin
 // app/build.gradle.kts
 debugImplementation("com.behtar.lens:lens:1.0.0")
 releaseImplementation("com.behtar.lens:lens-noop:1.0.0")
 ```
 
-### 3. Initialize
+If you have a `releaseDebug` build type (a release-signed APK with debug tools enabled), include Lens there too:
 
 ```kotlin
+debugImplementation("com.behtar.lens:lens:1.0.0")
+"releaseDebugImplementation"("com.behtar.lens:lens:1.0.0")
+releaseImplementation("com.behtar.lens:lens-noop:1.0.0")
+```
+
+#### Library modules (`:core`, `:network`, etc.)
+
+If you use Lens APIs (e.g. `Lens.getNetworkInterceptor()`) inside a library module, use a different dependency pattern. **Do not use `implementation(lens-noop)` in library modules** — it puts the noop on all variant runtimes, causing a duplicate-class crash in debug when the full `lens` artifact is also present.
+
+Use `compileOnly` for the noop so it only provides the API surface at compile time:
+
+```kotlin
+// core/build.gradle.kts or any library module
+compileOnly("com.behtar.lens:lens-noop:1.0.0")   // compile-time API surface only
+debugImplementation("com.behtar.lens:lens:1.0.0")
+"releaseDebugImplementation"("com.behtar.lens:lens:1.0.0")
+releaseImplementation("com.behtar.lens:lens-noop:1.0.0")
+```
+
+> **Why `compileOnly`?** In library modules without product flavours, `implementation` adds the dependency to every variant's runtime classpath. When both `lens-noop` (from `implementation`) and `lens` (from `debugImplementation`) land on the debug runtime classpath simultaneously, the AGP `checkDuplicateClasses` task fails. `compileOnly` contributes only to the compile classpath — the runtime artifact is supplied by whichever consuming module (`:app`) resolves the correct variant.
+
+### 3. Initialize
+
+Call `Lens.install()` in your `Application.onCreate()`. It takes an `Application` instance — not a `Context`:
+
+```kotlin
+import com.behtar.lens.api.ActivationGesture
+import com.behtar.lens.api.Lens
+
 class MyApp : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -83,7 +116,7 @@ val client = OkHttpClient.Builder()
 | Artifact | Purpose | Use with |
 |----------|---------|----------|
 | `com.behtar.lens:lens` | Full SDK — all plugins, interceptors, and UI | `debugImplementation` |
-| `com.behtar.lens:lens-noop` | No-op stubs — identical API surface, zero behavior | `releaseImplementation` |
+| `com.behtar.lens:lens-noop` | No-op stubs — identical API surface, zero behavior | `releaseImplementation` / `compileOnly` in library modules |
 | `com.behtar.lens:lens-api` | Pure-Kotlin interfaces — no Android dependency | Transitive (pulled automatically) |
 
 ---
@@ -118,37 +151,58 @@ These appear only when you supply a provider implementation:
 
 ## Configuration
 
+All configuration is done through the DSL passed to `Lens.install()`. Provider-based plugins are
+wired via **functions** on the builder — not property assignment:
+
 ```kotlin
+import com.behtar.lens.api.ActivationGesture
+import com.behtar.lens.api.HeaderRedactor
+import com.behtar.lens.api.Lens
+
 Lens.install(this) {
-    // Activation gesture: FIVE_TAP (default), SHAKE, or NONE
+    // Activation gesture: THREE_TAP, FIVE_TAP (default), LONG_PRESS, or NONE
     activationGesture = ActivationGesture.FIVE_TAP
+
+    // Shake to open (independent of activationGesture)
+    shakeToOpenEnabled = true
 
     // Sticky notification with live request/error counts
     showNotification = true
 
-    // Remote kill switch (disable Lens without app update)
-    remoteActivationProvider = FirebaseRemoteActivation("devtools_enabled")
-
-    // Redact sensitive headers in network logs
-    headerRedactor = HeaderRedactor { name ->
-        name.equals("Authorization", ignoreCase = true)
+    // Remote kill switch — disable Lens without shipping an app update.
+    // The lambda receives a callback; invoke it with true to enable, false to disable.
+    remoteActivation { callback ->
+        val enabled = FirebaseRemoteConfig.getInstance().getBoolean("devtools_enabled")
+        callback(enabled)
     }
 
-    // Provider-based plugins
-    environmentProvider = MyEnvironmentProvider()
-    featureFlagProvider = MyFeatureFlagProvider()
-    quickActionsProvider = MyQuickActionsProvider()
+    // Redact sensitive headers in network logs.
+    // Return true for any header name whose value should be replaced with "[REDACTED]".
+    headerRedactor(HeaderRedactor { name ->
+        name.equals("Authorization", ignoreCase = true)
+    })
+
+    // Provider-based plugins — wire via functions, not property assignment
+    environments(MyEnvironmentProvider())
+    featureFlags(MyFeatureFlagProvider())
+    quickActions(MyQuickActionsProvider())
 }
 ```
+
+> **Builder API note:** `remoteActivation`, `headerRedactor`, `environments`, `featureFlags`, and
+> `quickActions` are **functions** on the builder, not writable properties. Assigning them as
+> properties (e.g. `headerRedactor = ...`) will not compile.
 
 ### Activation Methods
 
 | Method | How |
 |--------|-----|
-| 5-tap | Tap anywhere 5 times quickly |
-| Shake | Shake the device |
+| 3-tap | Tap anywhere 3 times quickly (`ActivationGesture.THREE_TAP`) |
+| 5-tap | Tap anywhere 5 times quickly (`ActivationGesture.FIVE_TAP`) — default |
+| Long press | Long-press anywhere (`ActivationGesture.LONG_PRESS`) |
+| Shake | Set `shakeToOpenEnabled = true` in the DSL |
 | Programmatic | `Lens.open()` |
-| Notification | Tap the sticky notification |
+| Notification | Tap the sticky notification (requires `showNotification = true`) |
 | Floating bubble | Always visible — injected into every Activity's DecorView (no permissions needed) |
 
 ---
@@ -170,6 +224,9 @@ val listener = Lens.wrapWebSocketListener(myListener)
 ### Compose Plugin
 
 ```kotlin
+import com.behtar.lens.api.ComposableLensPlugin
+import com.behtar.lens.api.Lens
+
 class MyDebugPlugin : ComposableLensPlugin {
     override val id = "my_debug"
     override val name = "My Debug Tool"
@@ -192,6 +249,9 @@ Lens.registerPlugin(MyDebugPlugin())
 For non-Compose consumers (React Native native modules, Java apps):
 
 ```kotlin
+import com.behtar.lens.api.LensExperimental
+import com.behtar.lens.api.ViewLensPlugin
+
 @OptIn(LensExperimental::class)
 class LegacyPlugin : ViewLensPlugin {
     override val id = "legacy"
@@ -290,7 +350,18 @@ cd lens-android-sdk
 ./gradlew publishToMavenLocal
 ```
 
-Then temporarily add `mavenLocal()` above the GitHub Packages repository in your app's `settings.gradle.kts`. Maven Local takes priority, so your local build will be used.
+Then temporarily add `mavenLocal()` **above** the GitHub Packages repository in your app's `settings.gradle.kts`. Maven Local takes priority, so your local build will be used.
+
+```kotlin
+// settings.gradle.kts — local development only, do not commit
+repositories {
+    mavenLocal()  // must be first
+    maven {
+        url = uri("https://maven.pkg.github.com/lokal-app/lens-android-sdk")
+        // ...
+    }
+}
+```
 
 ---
 
