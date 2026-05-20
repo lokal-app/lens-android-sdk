@@ -44,34 +44,27 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.behtar.lens.api.DeepLinkProvider
 import timber.log.Timber
 
 /**
  * Deep Link Tester screen.
  *
- * Allows entering and testing deep links without leaving the app. Includes quick access buttons for
- * common paths and history of recent tests.
+ * Allows entering and testing deep links without leaving the app. Includes quick access buttons
+ * sourced from [DeepLinkProvider] (host-app supplied) and history of recent tests.
+ *
+ * The Quick Links section is hidden when no [provider] is registered.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeepLinkTesterScreen() {
+fun DeepLinkTesterScreen(provider: DeepLinkProvider? = null) {
   val context = LocalContext.current
   var deepLinkUrl by remember { mutableStateOf("") }
   val history = remember { mutableStateListOf<String>() }
 
-  // Common deep link paths for quick testing
-  // Format: scheme://host/path?query_params
-  val quickLinks = remember {
-    listOf(
-        "/home" to "Home",
-        "/profile" to "Profile",
-        "/payment" to "Payment",
-        "/learn-tab" to "Learn Tab",
-        "/ai-riya-tab" to "AI Riya Tab",
-        "/categories?category_id=123&slug=sample-category" to "Category (sample)",
-        "/themes?theme_id=456&slug=sample-theme" to "Theme (sample)",
-        "/videos?content_series_id=789&slug=sample-video" to "Video (sample)")
-  }
+  // Quick links are sourced from the host app's DeepLinkProvider.
+  // Empty when no provider is registered — the section is hidden in that case.
+  val quickLinks = remember(provider) { provider?.getQuickLinks() ?: emptyList() }
 
   Scaffold(
       topBar = {
@@ -123,27 +116,29 @@ fun DeepLinkTesterScreen() {
                     }
               }
 
-              // Quick Links Section
-              item {
-                Text(
-                    text = "Quick Links",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold)
+              // Quick Links Section — only shown when the host app registered a DeepLinkProvider
+              if (quickLinks.isNotEmpty()) {
+                item {
+                  Text(
+                      text = "Quick Links",
+                      style = MaterialTheme.typography.titleMedium,
+                      fontWeight = FontWeight.Bold)
+                }
               }
 
-              item {
+              if (quickLinks.isNotEmpty()) item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors =
                         CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                       Column {
-                        quickLinks.forEachIndexed { index, (path, label) ->
+                        quickLinks.forEachIndexed { index, deepLink ->
                           QuickLinkRow(
-                              path = path,
-                              label = label,
+                              path = deepLink.path,
+                              label = deepLink.label,
                               onClick = {
-                                val url = normalizeDeepLink(context, path)
+                                val url = normalizeDeepLink(context, deepLink.path)
                                 if (url != null) {
                                   testDeepLink(context, url)
                                   if (!history.contains(url)) {

@@ -96,7 +96,7 @@ val client = OkHttpClient.Builder()
 | **Global Search** | Cross-plugin search across all log types with 300ms debounce |
 | **App Info** | Build info, device details, session metadata |
 | **Performance Monitor** | Real-time FPS (Choreographer), memory usage, jank detection with sparkline graphs |
-| **Analytics Inspector** | Intercepted analytics events and user properties |
+| **Analytics Inspector** | Intercepted analytics events and user properties with Firebase limit validation |
 | **Exception Tracker** | Uncaught + handled exceptions with stack traces, ANR detection (5s watchdog) |
 | **Database Inspector** | Browse and query SQLite databases |
 | **SharedPreferences Editor** | View and edit all SharedPreferences files |
@@ -150,6 +150,145 @@ Lens.install(this) {
 | Programmatic | `Lens.open()` |
 | Notification | Tap the sticky notification |
 | Floating bubble | Always visible — injected into every Activity's DecorView (no permissions needed) |
+
+---
+
+## Environment Switcher
+
+The Environment Switcher plugin lets you switch API base URLs at runtime without rebuilding the APK. Lens provides the UI (including the confirmation dialog and restart button) — you implement persistence and restart.
+
+### 1. Implement EnvironmentProvider
+
+```kotlin
+class MyEnvironmentProvider(private val context: Context) : EnvironmentProvider {
+
+    private val prefs = context.getSharedPreferences("lens_env", Context.MODE_PRIVATE)
+
+    private val environments = listOf(
+        Environment(id = "prod",    name = "Production",  description = "Live servers",    baseUrl = "https://api.example.com/"),
+        Environment(id = "staging", name = "Staging",     description = "Staging servers", baseUrl = "https://staging.example.com/"),
+        Environment(id = "dev",     name = "Development", description = "Local server",    baseUrl = "http://10.0.2.2:8080/")
+    )
+
+    private val defaultId = if (BuildConfig.DEBUG) "dev" else "prod"
+
+    override fun getEnvironments() = environments
+
+    override fun getCurrentEnvironment(): Environment {
+        val id = prefs.getString("env_id", null) ?: defaultId
+        return environments.find { it.id == id } ?: environments.first()
+    }
+
+    override fun setEnvironment(environment: Environment) {
+        // commit() not apply() — the process is killed right after this call.
+        // apply() is async and may not flush to disk before the process dies.
+        prefs.edit().putString("env_id", environment.id).commit()
+    }
+
+    override fun onRestartRequested() {
+        // Fire a launch intent before killing so the app cold-starts cleanly.
+        // A bare killProcess() can restore the previous task stack without going
+        // through Application.onCreate(), leaving DI singletons on the old base URL.
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        intent?.let { context.startActivity(it) }
+        Process.killProcess(Process.myPid())
+    }
+}
+```
+
+### 2. Register with Lens
+
+```kotlin
+Lens.install(this) {
+    environments(MyEnvironmentProvider(this))
+}
+```
+
+### 3. Wire your network layer
+
+The switch only takes effect if your network layer reads the persisted value at startup — `BuildConfig` fields are compile-time constants and can't reflect a runtime selection. Your base URL source must check SharedPrefs before falling back to `BuildConfig`:
+
+```kotlin
+fun resolveBaseUrl(context: Context): String {
+    val prefs = context.getSharedPreferences("lens_env", Context.MODE_PRIVATE)
+    return when (prefs.getString("env_id", null)) {
+        "staging" -> "https://staging.example.com/"
+        "dev"     -> "http://10.0.2.2:8080/"
+        else      -> "https://api.example.com/"
+    }
+}
+```
+
+If you use Hilt or Dagger with `@Singleton` Retrofit/OkHttp instances, call this at component creation time (e.g., inside your `@Provides` method). The new URL takes effect after the restart because the DI graph is rebuilt from scratch on cold start.
+
+> **Note:** Switching environments logs the user out if your auth tokens are environment-scoped. This is expected — production and staging backends have separate auth systems.
+
+---
+
+## Deep Link Tester
+
+The Deep Link Tester lets you fire any deep link without leaving the app. You can type a full URL or a relative path — Lens prefixes the correct scheme and host automatically.
+
+The **Quick Links** section is optional and app-specific. Implement `DeepLinkProvider` to populate it with your own shortcuts.
+
+### 1. Implement DeepLinkProvider
+
+```kotlin
+class MyDeepLinkProvider : DeepLinkProvider {
+    override fun getQuickLinks() = listOf(
+        DeepLink(label = "Home",    path = "/home"),
+        DeepLink(label = "Profile", path = "/profile"),
+        DeepLink(label = "Payment", path = "/payment"),
+    )
+}
+```
+
+Paths can be relative (`/home`) or absolute (`myapp://myapp.com/home`). Relative paths are prefixed with the app's scheme and host automatically.
+
+### 2. Register with Lens
+
+```kotlin
+Lens.install(this) {
+    deepLinks(MyDeepLinkProvider())
+}
+```
+
+Without a provider, the Quick Links section is hidden and the manual URL input still works.
+
+---
+
+## Analytics Inspector
+
+The Analytics Inspector captures every event and user property sent through `AnalyticsEventListenerLocator`. No extra setup is needed — it works automatically once Lens is initialized.
+
+### Firebase limit validation
+
+Firebase Analytics silently drops or truncates data that violates its limits — no error is returned to the caller. Lens validates every event and user property destined for Firebase and surfaces violations inline:
+
+- **Amber left border** on the event card in the list — catches your eye immediately while scanning
+- **Violations banner** at the top of the event detail view — lists every issue with a plain-English explanation
+- **Per-parameter highlighting** — offending parameters turn amber with the exact reason inline
+
+Validation only runs for events where `destinations` contains `"FIREBASE"`. MoEngage, Adjust, etc. are not affected.
+
+#### Firebase limits enforced
+
+| What | Limit | Consequence if violated |
+|------|-------|------------------------|
+| Event name length | 40 chars | Event dropped |
+| Event name characters | `[a-zA-Z][a-zA-Z0-9_]*` | Event dropped |
+| Reserved event name | See Firebase docs | Event dropped |
+| Reserved prefix (`firebase_`, `ga_`, `google_`) | — | Event dropped |
+| Parameters per event | 25 | Extra params dropped |
+| Parameter name length | 40 chars | Parameter dropped |
+| Parameter name characters | `[a-zA-Z][a-zA-Z0-9_]*` | Parameter dropped |
+| Reserved parameter name | `session_id`, `user_id`, etc. | Parameter dropped |
+| Parameter value length (string) | 100 chars | Value truncated |
+| User property name length | 24 chars | Property dropped |
+| User property name characters | `[a-zA-Z][a-zA-Z0-9_]*` | Property dropped |
+| Reserved user property name | `Age`, `Gender`, `Interest` | Property dropped |
+| User property value length (string) | 36 chars | Value truncated |
 
 ---
 
@@ -223,13 +362,6 @@ Backed by SharedPreferences in debug builds, no-op in release.
 
 ---
 
-## Data Export
-
-Share button on the dashboard toolbar exports:
-- **HAR 1.2** — importable into Chrome DevTools, Charles Proxy
-- **JSON** — all logs (network, exceptions, analytics) as a single file
-
----
 
 ## Architecture
 

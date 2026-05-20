@@ -119,7 +119,7 @@ internal class LensImpl(private val application: Application, private val config
     pluginRegistry.register(ExceptionsPlugin())
     pluginRegistry.register(DatabasePlugin())
     pluginRegistry.register(PreferencesPlugin())
-    pluginRegistry.register(DeepLinkPlugin())
+    pluginRegistry.register(DeepLinkPlugin(config.deepLinkProvider))
     pluginRegistry.register(LogViewerPlugin())
     pluginRegistry.register(CacheManagerPlugin())
     pluginRegistry.register(PerformancePlugin())

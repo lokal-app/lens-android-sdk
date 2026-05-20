@@ -1,5 +1,6 @@
 package com.behtar.lens.internal.presentation.network.components.detail
 
+import android.util.LruCache
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,8 @@ fun HttpDetailScreen(
     selectedTab: HttpDetailTab,
     onTabSelected: (HttpDetailTab) -> Unit,
     onBack: () -> Unit,
+    formattedBodyCache: LruCache<String, String>,
+    highlightedBodyCache: LruCache<String, AnnotatedString>,
     modifier: Modifier = Modifier
 ) {
   val clipboardManager = LocalClipboardManager.current
@@ -102,7 +105,7 @@ fun HttpDetailScreen(
       HttpDetailTab.OVERVIEW -> HttpOverviewTab(entry)
       HttpDetailTab.HEADERS -> HttpHeadersTab(entry)
       HttpDetailTab.REQUEST -> HttpRequestBodyTab(entry)
-      HttpDetailTab.RESPONSE -> HttpResponseBodyTab(entry)
+      HttpDetailTab.RESPONSE -> HttpResponseBodyTab(entry, formattedBodyCache, highlightedBodyCache)
       HttpDetailTab.CURL -> HttpCurlTab(entry)
     }
   }
@@ -174,12 +177,22 @@ private fun HttpRequestBodyTab(entry: NetworkLogEntry) {
 }
 
 @Composable
-private fun HttpResponseBodyTab(entry: NetworkLogEntry) {
+private fun HttpResponseBodyTab(
+    entry: NetworkLogEntry,
+    formattedBodyCache: LruCache<String, String>,
+    highlightedBodyCache: LruCache<String, AnnotatedString>,
+) {
   Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
     entry.responseBody?.let { body ->
       SectionTitle("Response Body")
       Spacer(modifier = Modifier.height(8.dp))
-      CodeBlock(body)
+      CodeBlock(
+          content = body,
+          cachedFormatted = formattedBodyCache[entry.id],
+          onFormatted = { formatted -> formattedBodyCache.put(entry.id, formatted) },
+          cachedHighlighted = highlightedBodyCache[entry.id],
+          onHighlighted = { highlighted -> highlightedBodyCache.put(entry.id, highlighted) },
+      )
     }
         ?: EmptyBodyPlaceholder(
             emoji = if (entry.isInProgress) "⏳" else "📭",

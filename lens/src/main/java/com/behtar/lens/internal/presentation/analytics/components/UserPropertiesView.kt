@@ -5,19 +5,25 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -32,13 +38,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.behtar.lens.internal.analytics.FirebaseAnalyticsValidator
 import com.behtar.lens.internal.data.model.UserPropertyEntry
+
+private val FirebaseWarningAmber = Color(0xFFF59E0B)
 
 /**
  * Displays a list of user property updates.
@@ -62,7 +72,12 @@ fun UserPropertiesView(properties: List<UserPropertyEntry>, modifier: Modifier =
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
           item { Spacer(modifier = Modifier.height(8.dp)) }
 
-          items(properties, key = { it.id }) { property -> UserPropertyCard(property = property) }
+          items(properties, key = { it.id }) { property ->
+            val validation = remember(property.id) {
+              FirebaseAnalyticsValidator.validateUserProperty(property)
+            }
+            UserPropertyCard(property = property, hasFirebaseViolations = validation.hasViolations)
+          }
 
           item { Spacer(modifier = Modifier.height(16.dp)) }
         }
@@ -70,15 +85,26 @@ fun UserPropertiesView(properties: List<UserPropertyEntry>, modifier: Modifier =
 }
 
 @Composable
-private fun UserPropertyCard(property: UserPropertyEntry) {
+private fun UserPropertyCard(property: UserPropertyEntry, hasFirebaseViolations: Boolean) {
   var isExpanded by remember { mutableStateOf(false) }
   val hasMoreProperties = property.properties.size > 5
   val context = LocalContext.current
+  val validation = remember(property.id) { FirebaseAnalyticsValidator.validateUserProperty(property) }
 
   Card(
       modifier = Modifier.fillMaxWidth().animateContentSize(),
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(12.dp)) {
+      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+  ) {
+    Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+      if (hasFirebaseViolations) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .fillMaxHeight()
+                .background(FirebaseWarningAmber)
+        )
+      }
+      Column(modifier = Modifier.padding(12.dp)) {
           // Header row
           Row(
               modifier = Modifier.fillMaxWidth(),
@@ -159,25 +185,38 @@ private fun UserPropertyCard(property: UserPropertyEntry) {
                 }
 
             propertiesToShow.forEach { (key, value) ->
-              Row(
-                  modifier = Modifier.fillMaxWidth(),
-                  horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "$key:",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
-
-                    Text(
-                        text = value?.toString() ?: "null",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = if (isExpanded) Int.MAX_VALUE else 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f))
-                  }
+              val propViolations = validation.propertyViolations[key] ?: emptyList()
+              Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                  Text(
+                      text = "$key:",
+                      style = MaterialTheme.typography.bodySmall,
+                      fontFamily = FontFamily.Monospace,
+                      fontWeight = FontWeight.Bold,
+                      color = if (propViolations.isNotEmpty()) FirebaseWarningAmber
+                              else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                  )
+                  Text(
+                      text = value?.toString() ?: "null",
+                      style = MaterialTheme.typography.bodySmall,
+                      fontFamily = FontFamily.Monospace,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      maxLines = if (isExpanded) Int.MAX_VALUE else 1,
+                      overflow = TextOverflow.Ellipsis,
+                      modifier = Modifier.weight(1f),
+                  )
+                }
+                propViolations.forEach { violation ->
+                  Text(
+                      text = "⚠ ${violation.message()}",
+                      style = MaterialTheme.typography.labelSmall,
+                      color = FirebaseWarningAmber,
+                  )
+                }
+              }
             }
 
             // Show more/less toggle
@@ -199,6 +238,7 @@ private fun UserPropertyCard(property: UserPropertyEntry) {
           }
         }
       }
+    }
 }
 
 /** Copies text to clipboard and shows a toast. */

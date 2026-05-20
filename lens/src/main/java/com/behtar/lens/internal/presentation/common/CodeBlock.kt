@@ -8,19 +8,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -32,43 +36,91 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.behtar.lens.internal.presentation.network.NetworkViewModel
 import com.behtar.lens.internal.presentation.theme.JsonSyntaxColors
 import com.behtar.lens.internal.presentation.theme.LocalJsonSyntaxColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Code block with JSON syntax highlighting. Supports copy to clipboard and horizontal/vertical
  * scrolling.
+ *
+ * Rendering is split into two async stages on [Dispatchers.Default] to keep the main thread free:
+ * 1. Pretty-print (plain String → indented String) — result supplied by caller via [cachedFormatted]
+ *    if already computed for this entry (ViewModel cache), otherwise computed here and handed back
+ *    via [onFormatted] so the caller can cache it.
+ * 2. Syntax-highlight (indented String → AnnotatedString) — always runs off-main-thread via
+ *    [produceState]. Shows a spinner until complete.
+ *
+ * Copy always uses the full original [content], not the display-truncated version.
  */
 @Composable
 fun CodeBlock(
     content: String,
     modifier: Modifier = Modifier,
-    colors: JsonSyntaxColors = LocalJsonSyntaxColors.current
+    cachedFormatted: String? = null,
+    onFormatted: ((String) -> Unit)? = null,
+    cachedHighlighted: AnnotatedString? = null,
+    onHighlighted: ((AnnotatedString) -> Unit)? = null,
+    colors: JsonSyntaxColors = LocalJsonSyntaxColors.current,
 ) {
   val clipboardManager = LocalClipboardManager.current
   val context = LocalContext.current
 
-  val formattedContent = remember(content) { formatJson(content) }
-  val highlightedText =
-      remember(formattedContent, colors) { highlightJson(formattedContent, colors) }
+  // Truncate only what we render — copy always uses the full original content.
+  val displayContent =
+      if (content.length > NetworkViewModel.DISPLAY_LIMIT) content.take(NetworkViewModel.DISPLAY_LIMIT)
+      else content
+  val isTruncated = content.length > NetworkViewModel.DISPLAY_LIMIT
+
+  // If the caller supplies a pre-computed AnnotatedString, use it immediately (no spinner).
+  // Otherwise: stage 1 (prettyPrint, skipped if cachedFormatted is set) and stage 2 (highlight)
+  // both run off-main-thread via produceState, showing a spinner until complete.
+  // The result is handed back via onHighlighted so the caller can cache it for future renders.
+  val highlightedText by produceState<AnnotatedString?>(
+      initialValue = cachedHighlighted,
+      key1 = displayContent,
+      key2 = cachedFormatted,
+      key3 = cachedHighlighted,
+  ) {
+    if (cachedHighlighted != null) {
+      value = cachedHighlighted
+      return@produceState
+    }
+    value =
+        withContext(Dispatchers.Default) {
+          val formatted =
+              cachedFormatted
+                  ?: run {
+                    val result = formatJson(displayContent)
+                    onFormatted?.invoke(result)
+                    result
+                  }
+          val highlighted = highlightJson(formatted, colors)
+          onHighlighted?.invoke(highlighted)
+          highlighted
+        }
+  }
 
   Column(
       modifier = modifier.fillMaxWidth().background(colors.background, RoundedCornerShape(8.dp))) {
-        // Header with copy button
         Row(
             modifier =
                 Modifier.fillMaxWidth()
                     .background(
-                        colors.headerBackground, RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                        colors.headerBackground,
+                        RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically) {
               Text(
-                  text = "JSON",
+                  text = if (isTruncated) "JSON (truncated — copy for full)" else "JSON",
                   style = MaterialTheme.typography.labelSmall,
                   color = colors.text.copy(alpha = 0.7f))
               Spacer(modifier = Modifier.weight(1f))
               IconButton(
                   onClick = {
+                    // Always copy the full original content, never the truncated display string.
                     clipboardManager.setText(AnnotatedString(content))
                     Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
                   }) {
@@ -79,42 +131,54 @@ fun CodeBlock(
                   }
             }
 
-        // Content area
-        Box(
-            modifier =
-                Modifier.fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .horizontalScroll(rememberScrollState())
-                    .verticalScroll(rememberScrollState())
-                    .padding(12.dp)) {
-              SelectionContainer {
-                Text(
-                    text = highlightedText,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp)
+        if (highlightedText == null) {
+          Box(
+              modifier = Modifier.fillMaxWidth().height(120.dp),
+              contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = colors.text.copy(alpha = 0.5f),
+                    strokeWidth = 2.dp)
               }
-            }
+        } else {
+          Box(
+              modifier =
+                  Modifier.fillMaxWidth()
+                      .weight(1f, fill = false)
+                      .horizontalScroll(rememberScrollState())
+                      .verticalScroll(rememberScrollState())
+                      .padding(12.dp)) {
+                SelectionContainer {
+                  Text(
+                      text = highlightedText!!,
+                      fontFamily = FontFamily.Monospace,
+                      fontSize = 12.sp,
+                      lineHeight = 18.sp)
+                }
+              }
+        }
       }
 }
 
-/** Format JSON string with indentation. */
-private fun formatJson(json: String): String {
+internal fun formatJson(json: String): String {
   return try {
     val trimmed = json.trim()
-    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-      prettyPrintJson(trimmed)
-    } else {
-      json
-    }
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) prettyPrintJson(trimmed) else json
   } catch (e: Exception) {
     json
   }
 }
 
-/** Simple JSON pretty printer. */
+// Pre-built indent strings up to depth 32. Eliminates "  ".repeat(n) string allocation
+// on every structural character — the original hotspot in prettyPrintJson.
+private val INDENT_CACHE: Array<String> = Array(33) { depth -> "  ".repeat(depth) }
+
+private fun indent(depth: Int): String =
+    if (depth < INDENT_CACHE.size) INDENT_CACHE[depth] else "  ".repeat(depth)
+
 private fun prettyPrintJson(json: String): String {
-  val sb = StringBuilder()
+  // Pre-size the builder generously to avoid mid-flight resizes on large inputs.
+  val sb = StringBuilder(json.length + json.length / 4)
   var indent = 0
   var inString = false
   var escaped = false
@@ -135,34 +199,25 @@ private fun prettyPrintJson(json: String): String {
       }
       !inString ->
           when (char) {
-            '{',
-            '[' -> {
+            '{', '[' -> {
               sb.append(char)
               indent++
               sb.append('\n')
-              sb.append("  ".repeat(indent))
+              sb.append(indent(indent))
             }
-            '}',
-            ']' -> {
+            '}', ']' -> {
               indent--
               sb.append('\n')
-              sb.append("  ".repeat(indent))
+              sb.append(indent(indent))
               sb.append(char)
             }
             ',' -> {
               sb.append(char)
               sb.append('\n')
-              sb.append("  ".repeat(indent))
+              sb.append(indent(indent))
             }
-            ':' -> {
-              sb.append(": ")
-            }
-            ' ',
-            '\n',
-            '\r',
-            '\t' -> {
-              /* skip whitespace */
-            }
+            ':' -> sb.append(": ")
+            ' ', '\n', '\r', '\t' -> {} // skip whitespace outside strings
             else -> sb.append(char)
           }
       else -> sb.append(char)
@@ -171,70 +226,74 @@ private fun prettyPrintJson(json: String): String {
   return sb.toString()
 }
 
-/** Apply syntax highlighting to JSON text. */
+// Batched span highlighter: accumulates runs of same-color text and emits one span per run,
+// instead of one span per character. Reduces span count by ~5–8x on typical JSON responses,
+// which directly cuts AnnotatedString allocation size and first-render time.
 private fun highlightJson(json: String, colors: JsonSyntaxColors): AnnotatedString {
   return buildAnnotatedString {
     var i = 0
-    var inString = false
     var isKey = true
-    var escaped = false
+
+    // Pending run of same-color characters — flushed when color changes or on structural tokens.
+    val runBuffer = StringBuilder()
+    var runColor = colors.text
+
+    fun flushRun() {
+      if (runBuffer.isEmpty()) return
+      withStyle(SpanStyle(color = runColor)) { append(runBuffer) }
+      runBuffer.clear()
+    }
+
+    fun appendColored(text: String, color: androidx.compose.ui.graphics.Color) {
+      if (color != runColor) { flushRun(); runColor = color }
+      runBuffer.append(text)
+    }
+
+    fun appendColored(char: Char, color: androidx.compose.ui.graphics.Color) {
+      if (color != runColor) { flushRun(); runColor = color }
+      runBuffer.append(char)
+    }
 
     while (i < json.length) {
       val char = json[i]
-
       when {
-        escaped -> {
-          append(char)
-          escaped = false
-        }
-        char == '\\' -> {
-          append(char)
-          escaped = true
-        }
         char == '"' -> {
+          flushRun()
           val endQuote = findEndOfString(json, i + 1)
           val stringContent = json.substring(i, endQuote + 1)
-
-          val color = if (isKey) colors.key else colors.string
-          withStyle(SpanStyle(color = color)) { append(stringContent) }
-
+          withStyle(SpanStyle(color = if (isKey) colors.key else colors.string)) {
+            append(stringContent)
+          }
           i = endQuote
-          inString = false
           isKey = !isKey
         }
-        char == ':' -> {
-          withStyle(SpanStyle(color = colors.text)) { append(char) }
-          isKey = false
-        }
-        char == ',' -> {
-          withStyle(SpanStyle(color = colors.text)) { append(char) }
-          isKey = true
-        }
+        char == ':' -> { flushRun(); appendColored(char, colors.text); isKey = false }
+        char == ',' -> { flushRun(); appendColored(char, colors.text); isKey = true }
         char in "{[]}" -> {
-          withStyle(SpanStyle(color = colors.brace)) { append(char) }
+          flushRun()
+          appendColored(char, colors.brace)
           if (char == '{') isKey = true
         }
         char.isDigit() || (char == '-' && i + 1 < json.length && json[i + 1].isDigit()) -> {
+          flushRun()
           val numEnd = findEndOfNumber(json, i)
-          withStyle(SpanStyle(color = colors.number)) { append(json.substring(i, numEnd)) }
+          appendColored(json.substring(i, numEnd), colors.number)
           i = numEnd - 1
         }
         json.startsWith("true", i) -> {
-          withStyle(SpanStyle(color = colors.boolean)) { append("true") }
-          i += 3
+          flushRun(); appendColored("true", colors.boolean); i += 3
         }
         json.startsWith("false", i) -> {
-          withStyle(SpanStyle(color = colors.boolean)) { append("false") }
-          i += 4
+          flushRun(); appendColored("false", colors.boolean); i += 4
         }
         json.startsWith("null", i) -> {
-          withStyle(SpanStyle(color = colors.nullValue)) { append("null") }
-          i += 3
+          flushRun(); appendColored("null", colors.nullValue); i += 3
         }
-        else -> withStyle(SpanStyle(color = colors.text)) { append(char) }
+        else -> appendColored(char, colors.text)
       }
       i++
     }
+    flushRun()
   }
 }
 

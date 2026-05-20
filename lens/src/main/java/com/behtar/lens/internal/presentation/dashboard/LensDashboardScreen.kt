@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,7 +45,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.behtar.lens.api.ComposableLensPlugin
 import com.behtar.lens.api.LensPlugin
 import com.behtar.lens.api.ViewLensPlugin
-import com.behtar.lens.internal.export.LensExporter
+
 
 /**
  * Main dashboard screen for Lens.
@@ -57,7 +56,6 @@ import com.behtar.lens.internal.export.LensExporter
 @Composable
 fun LensDashboardScreen(plugins: List<LensPlugin>, onClose: () -> Unit) {
   var selectedPlugin by remember { mutableStateOf<LensPlugin?>(null) }
-  val context = LocalContext.current
 
   Scaffold(
       topBar = {
@@ -78,9 +76,6 @@ fun LensDashboardScreen(plugins: List<LensPlugin>, onClose: () -> Unit) {
             },
             actions = {
               if (selectedPlugin == null) {
-                IconButton(onClick = { LensExporter.shareAllLogsAsJson(context) }) {
-                  Icon(imageVector = Icons.Default.Share, contentDescription = "Export logs")
-                }
                 IconButton(onClick = onClose) {
                   Icon(imageVector = Icons.Default.Close, contentDescription = "Close Lens")
                 }

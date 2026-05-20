@@ -17,6 +17,8 @@ class SampleApp : Application() {
     Lens.install(this) {
       activationGesture = ActivationGesture.FIVE_TAP
       showNotification = true
+      environments(SampleEnvironmentProvider(this@SampleApp))
+      deepLinks(SampleDeepLinkProvider())
     }
 
     // Create OkHttpClient with Lens interceptor

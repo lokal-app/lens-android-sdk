@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import com.behtar.lens.R
 import com.behtar.lens.api.ComposableLensPlugin
+import com.behtar.lens.api.DeepLinkProvider
 import com.behtar.lens.internal.presentation.deeplink.DeepLinkTesterScreen
 import timber.log.Timber
 
@@ -12,12 +13,10 @@ import timber.log.Timber
  *
  * Allows testing deep links without leaving the app:
  * - Enter any deep link URL
- * - Quick access to common deep links
+ * - Quick access to app-specific links via [DeepLinkProvider] (optional)
  * - History of recently tested links
- *
- * Useful for testing navigation flows and deep link handling.
  */
-class DeepLinkPlugin : ComposableLensPlugin {
+class DeepLinkPlugin(private val provider: DeepLinkProvider? = null) : ComposableLensPlugin {
 
   override val id = "deep_link"
   override val name = "Deep Links"
@@ -39,6 +38,6 @@ class DeepLinkPlugin : ComposableLensPlugin {
 
   @Composable
   override fun Content() {
-    DeepLinkTesterScreen()
+    DeepLinkTesterScreen(provider = provider)
   }
 }

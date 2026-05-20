@@ -1,5 +1,6 @@
 package com.behtar.lens.internal.presentation.network
 
+import android.util.LruCache
 import androidx.lifecycle.ViewModel
 import com.behtar.lens.internal.data.model.NetworkLogEntry
 import com.behtar.lens.internal.data.model.WebSocketLogEntry
@@ -41,6 +42,21 @@ class NetworkViewModel(
   val httpLogs: StateFlow<List<NetworkLogEntry>> = getNetworkLogsUseCase()
   val webViewLogs: StateFlow<List<WebViewLogEntry>> = getWebViewLogsUseCase()
   val webSocketLogs: StateFlow<List<WebSocketLogEntry>> = getWebSocketLogsUseCase()
+
+  // Cache of pretty-printed (but not syntax-highlighted) response bodies, keyed by entry ID.
+  // Stores plain Strings — no Compose/UI types — so the ViewModel stays UI-layer-free.
+  // LruCache evicts the least-recently-used entry once the cap is reached. 100 entries at
+  // DISPLAY_LIMIT (50KB) each = ~5MB worst-case, acceptable for a debug tool.
+  // Cleared entirely on clearLogs so stale entries can't survive a log wipe.
+  val formattedBodyCache = LruCache<String, String>(FORMATTED_CACHE_MAX_ENTRIES)
+
+  companion object {
+    // Maximum number of pre-formatted bodies to keep in memory at once.
+    private const val FORMATTED_CACHE_MAX_ENTRIES = 100
+
+    // Maximum characters rendered in CodeBlock. Copy always uses the full original string.
+    const val DISPLAY_LIMIT = 50_000
+  }
 
   /**
    * Single entry point for all user events.
@@ -89,7 +105,11 @@ class NetworkViewModel(
   // ========================================================================
 
   private fun selectHttpEntry(entry: NetworkLogEntry) {
-    _uiState.update { it.copy(selectedScreen = SelectedScreen.HttpDetail(entry)) }
+    _uiState.update {
+      it.copy(
+          selectedScreen = SelectedScreen.HttpDetail(entry),
+          selectedHttpDetailTab = HttpDetailTab.OVERVIEW)
+    }
   }
 
   private fun selectWebViewEntry(entry: WebViewLogEntry) {
@@ -110,7 +130,10 @@ class NetworkViewModel(
 
   private fun clearCurrentLogs() {
     when (_uiState.value.selectedTab) {
-      NetworkInspectorTab.API -> clearNetworkLogsUseCase.clearHttpLogs()
+      NetworkInspectorTab.API -> {
+        clearNetworkLogsUseCase.clearHttpLogs()
+        formattedBodyCache.evictAll()
+      }
       NetworkInspectorTab.WEBVIEW -> clearNetworkLogsUseCase.clearWebViewLogs()
       NetworkInspectorTab.WEBSOCKET -> clearNetworkLogsUseCase.clearWebSocketLogs()
     }
@@ -118,5 +141,6 @@ class NetworkViewModel(
 
   private fun clearAllLogs() {
     clearNetworkLogsUseCase()
+    formattedBodyCache.evictAll()
   }
 }

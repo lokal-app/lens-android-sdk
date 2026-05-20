@@ -1,5 +1,6 @@
 package com.behtar.lens.internal.presentation.network
 
+import android.util.LruCache
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -9,7 +10,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.behtar.lens.internal.data.model.NetworkLogEntry
@@ -53,12 +56,19 @@ fun NetworkInspectorScreen(
   val webViewLogs by viewModel.webViewLogs.collectAsState()
   val webSocketLogs by viewModel.webSocketLogs.collectAsState()
 
+  // AnnotatedString cache lives at screen scope — survives tab switches within the inspector,
+  // cleared when the inspector is closed (composable leaves composition).
+  // Storing AnnotatedString here (not ViewModel) keeps UI types out of the ViewModel layer.
+  val highlightedBodyCache = remember { LruCache<String, AnnotatedString>(50) }
+
   NetworkInspectorContent(
       uiState = uiState,
       httpLogs = httpLogs,
       webViewLogs = webViewLogs,
       webSocketLogs = webSocketLogs,
       onEvent = viewModel::onEvent,
+      formattedBodyCache = viewModel.formattedBodyCache,
+      highlightedBodyCache = highlightedBodyCache,
       modifier = modifier)
 }
 
@@ -84,6 +94,8 @@ private fun NetworkInspectorContent(
     webViewLogs: List<WebViewLogEntry>,
     webSocketLogs: List<WebSocketLogEntry>,
     onEvent: (NetworkEvent) -> Unit,
+    formattedBodyCache: LruCache<String, String>,
+    highlightedBodyCache: LruCache<String, AnnotatedString>,
     modifier: Modifier = Modifier
 ) {
   // Navigation based on selected screen
@@ -94,6 +106,8 @@ private fun NetworkInspectorContent(
           selectedTab = uiState.selectedHttpDetailTab,
           onTabSelected = { onEvent(NetworkEvent.SelectHttpDetailTab(it)) },
           onBack = { onEvent(NetworkEvent.NavigateBack) },
+          formattedBodyCache = formattedBodyCache,
+          highlightedBodyCache = highlightedBodyCache,
           modifier = modifier)
     }
     is SelectedScreen.WebViewDetail -> {

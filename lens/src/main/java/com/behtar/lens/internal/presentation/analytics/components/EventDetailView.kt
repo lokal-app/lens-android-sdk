@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,8 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,13 +28,21 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.behtar.lens.internal.analytics.EventValidationResult
+import com.behtar.lens.internal.analytics.FirebaseAnalyticsValidator
+import com.behtar.lens.internal.analytics.Violation
 import com.behtar.lens.internal.data.model.AnalyticsLogEntry
+
+private val FirebaseWarningAmber = Color(0xFFF59E0B)
+private val FirebaseWarningAmberContainer = Color(0xFFFEF3C7)
 
 /**
  * Detail view for an analytics event.
@@ -48,9 +60,15 @@ import com.behtar.lens.internal.data.model.AnalyticsLogEntry
 @Composable
 fun EventDetailView(event: AnalyticsLogEntry, modifier: Modifier = Modifier) {
   val context = LocalContext.current
+  val validation = remember(event.id) { FirebaseAnalyticsValidator.validateEvent(event) }
 
   LazyColumn(
       modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Firebase violations banner — shown at top when any limit is crossed
+        if (validation.hasViolations) {
+          item { FirebaseViolationsBanner(validation) }
+        }
+
         // Header
         item {
           Column {
@@ -168,6 +186,7 @@ fun EventDetailView(event: AnalyticsLogEntry, modifier: Modifier = Modifier) {
             ParameterRow(
                 key = key,
                 value = value,
+                violations = validation.paramViolations[key] ?: emptyList(),
                 onCopy = { copyToClipboard(context, "$key: ${formatValue(value)}", key) })
           }
         }
@@ -186,38 +205,133 @@ private fun copyToClipboard(context: Context, text: String, label: String) {
 }
 
 @Composable
-private fun ParameterRow(key: String, value: Any?, onCopy: () -> Unit) {
+private fun ParameterRow(
+    key: String,
+    value: Any?,
+    violations: List<Violation>,
+    onCopy: () -> Unit,
+) {
+  val hasViolations = violations.isNotEmpty()
   Surface(
-      modifier = Modifier.fillMaxWidth(),
-      color = MaterialTheme.colorScheme.surfaceVariant,
-      shape = MaterialTheme.shapes.small) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
-          Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = key,
-                style = MaterialTheme.typography.labelMedium,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary)
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = formatValue(value),
-                style = MaterialTheme.typography.bodyMedium,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-          }
-
-          IconButton(onClick = onCopy, modifier = Modifier.size(32.dp)) {
+      modifier = Modifier
+          .fillMaxWidth()
+          .then(
+              if (hasViolations) Modifier.border(1.dp, FirebaseWarningAmber, MaterialTheme.shapes.small)
+              else Modifier
+          ),
+      color = if (hasViolations) FirebaseWarningAmberContainer else MaterialTheme.colorScheme.surfaceVariant,
+      shape = MaterialTheme.shapes.small,
+  ) {
+    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+      Column(modifier = Modifier.weight(1f)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+              text = key,
+              style = MaterialTheme.typography.labelMedium,
+              fontFamily = FontFamily.Monospace,
+              fontWeight = FontWeight.Bold,
+              color = if (hasViolations) FirebaseWarningAmber else MaterialTheme.colorScheme.primary,
+          )
+          if (hasViolations) {
             Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = "Copy $key",
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = FirebaseWarningAmber,
+                modifier = Modifier.size(12.dp),
+            )
+          }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = formatValue(value),
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (hasViolations) {
+          Spacer(modifier = Modifier.height(6.dp))
+          violations.forEach { violation ->
+            Text(
+                text = "⚠ ${violation.message()}",
+                style = MaterialTheme.typography.labelSmall,
+                color = FirebaseWarningAmber,
+            )
           }
         }
       }
+
+      IconButton(onClick = onCopy, modifier = Modifier.size(32.dp)) {
+        Icon(
+            imageVector = Icons.Default.ContentCopy,
+            contentDescription = "Copy $key",
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun FirebaseViolationsBanner(validation: EventValidationResult) {
+  Column(
+      modifier = Modifier
+          .fillMaxWidth()
+          .background(FirebaseWarningAmberContainer, RoundedCornerShape(8.dp))
+          .border(1.dp, FirebaseWarningAmber, RoundedCornerShape(8.dp))
+          .padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Icon(
+          imageVector = Icons.Default.Warning,
+          contentDescription = null,
+          tint = FirebaseWarningAmber,
+          modifier = Modifier.size(16.dp),
+      )
+      Text(
+          text = "Firebase limit violations — data may be dropped or truncated",
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.Bold,
+          color = FirebaseWarningAmber,
+      )
+    }
+
+    validation.eventNameViolations.forEach { violation ->
+      Text(
+          text = "• Event name: ${violation.message()}",
+          style = MaterialTheme.typography.labelSmall,
+          color = FirebaseWarningAmber,
+      )
+    }
+
+    validation.tooManyParamsViolation.forEach { violation ->
+      Text(
+          text = "• ${violation.message()}",
+          style = MaterialTheme.typography.labelSmall,
+          color = FirebaseWarningAmber,
+      )
+    }
+
+    validation.paramViolations.forEach { (key, violations) ->
+      violations.forEach { violation ->
+        Text(
+            text = "• Param \"$key\": ${violation.message()}",
+            style = MaterialTheme.typography.labelSmall,
+            color = FirebaseWarningAmber,
+        )
+      }
+    }
+  }
 }
 
 private fun formatValue(value: Any?): String {

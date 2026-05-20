@@ -46,6 +46,9 @@ data class LensConfig(
     /** Provider for quick actions */
     val quickActionsProvider: QuickActionsProvider?,
 
+    /** Provider for deep link tester quick links */
+    val deepLinkProvider: DeepLinkProvider?,
+
     /** Header redactor for network log security */
     val headerRedactor: HeaderRedactor,
 
@@ -82,6 +85,7 @@ data class LensConfig(
     private var environmentProvider: EnvironmentProvider? = null
     private var featureFlagProvider: FeatureFlagProvider? = null
     private var quickActionsProvider: QuickActionsProvider? = null
+    private var deepLinkProvider: DeepLinkProvider? = null
     private var headerRedactor: HeaderRedactor = DefaultHeaderRedactor()
 
     /**
@@ -147,6 +151,18 @@ data class LensConfig(
     }
 
     /**
+     * Sets the deep link provider for the Deep Link Tester quick links.
+     *
+     * When set, the Deep Link Tester shows a "Quick Links" section with one-tap shortcuts to your
+     * app's deep links. Without a provider, the section is hidden.
+     *
+     * @param provider Implementation of [DeepLinkProvider]
+     */
+    fun deepLinks(provider: DeepLinkProvider) {
+      deepLinkProvider = provider
+    }
+
+    /**
      * Sets a custom header redactor for network log security.
      *
      * The redactor determines which HTTP header values are replaced with `[REDACTED]` before being
@@ -170,6 +186,7 @@ data class LensConfig(
             environmentProvider = environmentProvider,
             featureFlagProvider = featureFlagProvider,
             quickActionsProvider = quickActionsProvider,
+            deepLinkProvider = deepLinkProvider,
             headerRedactor = headerRedactor,
             showNotification = showNotification)
   }
