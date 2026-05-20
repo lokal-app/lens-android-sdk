@@ -52,16 +52,16 @@ In your `app/build.gradle.kts`, use build-type-specific configurations:
 
 ```kotlin
 // app/build.gradle.kts
-debugImplementation("com.behtar.lens:lens:1.0.0")
-releaseImplementation("com.behtar.lens:lens-noop:1.0.0")
+debugImplementation("com.behtar.lens:lens:1.1.0")
+releaseImplementation("com.behtar.lens:lens-noop:1.1.0")
 ```
 
 If you have a `releaseDebug` build type (a release-signed APK with debug tools enabled), include Lens there too:
 
 ```kotlin
-debugImplementation("com.behtar.lens:lens:1.0.0")
-"releaseDebugImplementation"("com.behtar.lens:lens:1.0.0")
-releaseImplementation("com.behtar.lens:lens-noop:1.0.0")
+debugImplementation("com.behtar.lens:lens:1.1.0")
+"releaseDebugImplementation"("com.behtar.lens:lens:1.1.0")
+releaseImplementation("com.behtar.lens:lens-noop:1.1.0")
 ```
 
 #### Library modules (`:core`, `:network`, etc.)
@@ -72,10 +72,10 @@ Use `compileOnly` for the noop so it only provides the API surface at compile ti
 
 ```kotlin
 // core/build.gradle.kts or any library module
-compileOnly("com.behtar.lens:lens-noop:1.0.0")   // compile-time API surface only
-debugImplementation("com.behtar.lens:lens:1.0.0")
-"releaseDebugImplementation"("com.behtar.lens:lens:1.0.0")
-releaseImplementation("com.behtar.lens:lens-noop:1.0.0")
+compileOnly("com.behtar.lens:lens-noop:1.1.0")   // compile-time API surface only
+debugImplementation("com.behtar.lens:lens:1.1.0")
+"releaseDebugImplementation"("com.behtar.lens:lens:1.1.0")
+releaseImplementation("com.behtar.lens:lens-noop:1.1.0")
 ```
 
 > **Why `compileOnly`?** In library modules without product flavours, `implementation` adds the dependency to every variant's runtime classpath. When both `lens-noop` (from `implementation`) and `lens` (from `debugImplementation`) land on the debug runtime classpath simultaneously, the AGP `checkDuplicateClasses` task fails. `compileOnly` contributes only to the compile classpath — the runtime artifact is supplied by whichever consuming module (`:app`) resolves the correct variant.
@@ -455,7 +455,7 @@ Consumer rules are bundled — no manual configuration needed.
 | Database inspector | Yes | No | Yes | No |
 | Global search | Yes | No | No | No |
 | Custom plugin API | Yes | No | Yes | Yes |
-| HAR export | Yes | No | No | No |
+| HAR export | No | No | No | No |
 | No-op release variant | Yes | Yes | N/A | Yes |
 | No external tools needed | Yes | Yes | No (ADB) | Yes |
 | No DI framework required | Yes | Yes | Yes | No |
