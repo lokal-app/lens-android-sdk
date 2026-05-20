@@ -156,7 +156,7 @@ private fun HttpLogCard(
                       color = MaterialTheme.colorScheme.outline)
                 } else {
                   Text(
-                      text = "${entry.responseCode}",
+                      text = if (entry.responseCode == 0) "ERR" else "${entry.responseCode}",
                       style = MaterialTheme.typography.bodyMedium,
                       fontWeight = FontWeight.Bold,
                       color = statusColor)

@@ -122,7 +122,8 @@ private suspend fun performSearch(query: String): List<SearchResult> {
               id = "net_${entry.id}",
               type = SearchResultType.NETWORK,
               title = "${entry.method} ${entry.path}",
-              subtitle = "${entry.responseCode} · ${entry.durationString} · ${entry.host}",
+              subtitle =
+                  "${if (entry.responseCode == 0) "ERR" else entry.responseCode} · ${entry.durationString} · ${entry.host}",
               matchField = findNetworkMatchField(entry, lowerQuery),
               timestamp = entry.requestTimestamp))
     }

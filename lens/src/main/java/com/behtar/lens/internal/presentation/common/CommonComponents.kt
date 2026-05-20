@@ -181,13 +181,14 @@ fun StatusBadge(
     isInProgress: Boolean,
     modifier: Modifier = Modifier
 ) {
+  val effectiveCode = if (statusCode == 0) null else statusCode
   val statusColor =
       when {
         isInProgress -> Color(0xFF9E9E9E)
-        statusCode == null -> Color(0xFF9E9E9E)
-        statusCode in 200..299 -> Color(0xFF4CAF50)
-        statusCode in 300..399 -> Color(0xFF2196F3)
-        statusCode in 400..499 -> Color(0xFFFF9800)
+        effectiveCode == null -> Color(0xFF9E9E9E)
+        effectiveCode in 200..299 -> Color(0xFF4CAF50)
+        effectiveCode in 300..399 -> Color(0xFF2196F3)
+        effectiveCode in 400..499 -> Color(0xFFFF9800)
         else -> Color(0xFFF44336)
       }
 
@@ -200,8 +201,8 @@ fun StatusBadge(
             text =
                 when {
                   isInProgress -> "In Progress..."
-                  statusCode != null -> "$statusCode ${statusMessage ?: ""}"
-                  else -> "Unknown"
+                  effectiveCode != null -> "$effectiveCode ${statusMessage ?: ""}"
+                  else -> "ERR"
                 },
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
