@@ -3,9 +3,9 @@ package com.behtar.lens.api
 /**
  * Provider interface for environment configuration.
  *
- * Implement this interface to enable the Environment Switcher plugin in Lens. Lens shows a
- * built-in UI with a confirmation dialog and restart button — you do not need to build any UI.
- * Your job is to (1) persist the selection and (2) trigger a process restart.
+ * Implement this interface to enable the Environment Switcher plugin in Lens. Lens shows a built-in
+ * UI with a confirmation dialog and restart button — you do not need to build any UI. Your job is
+ * to (1) persist the selection and (2) trigger a process restart.
  *
  * ## How it works
  *
@@ -18,20 +18,20 @@ package com.behtar.lens.api
  *
  * ## Critical implementation notes
  *
- * **Use `commit()` not `apply()` in [setEnvironment].** `apply()` is asynchronous — the process
- * is killed immediately after, and the write may not flush to disk before the process dies,
- * silently losing the selection. `commit()` is synchronous and guaranteed to persist first.
+ * **Use `commit()` not `apply()` in [setEnvironment].** `apply()` is asynchronous — the process is
+ * killed immediately after, and the write may not flush to disk before the process dies, silently
+ * losing the selection. `commit()` is synchronous and guaranteed to persist first.
  *
  * **Fire a launch intent before killing the process in [onRestartRequested].** A bare
  * `Process.killProcess()` can cause Android to restore the previous back stack without going
  * through a clean cold start, meaning your DI graph (Hilt/Dagger singletons) may be rebuilt but
- * from a task-restore path that skips your Application-level init. Schedule the launch intent
- * first to guarantee a true cold start.
+ * from a task-restore path that skips your Application-level init. Schedule the launch intent first
+ * to guarantee a true cold start.
  *
  * **Your network layer must read from the same SharedPrefs at startup**, not just from
  * `BuildConfig`. `BuildConfig` fields are compile-time constants — switching environments at
- * runtime means your base URL source needs a mutable layer (SharedPrefs) that takes precedence
- * over the compile-time default.
+ * runtime means your base URL source needs a mutable layer (SharedPrefs) that takes precedence over
+ * the compile-time default.
  *
  * ## Example Implementation
  *
@@ -79,9 +79,8 @@ package com.behtar.lens.api
  * ## Wiring your network layer
  *
  * The environment override only takes effect if your network layer reads the persisted value at
- * startup. For example, if you use Hilt/Dagger with a `@Singleton` Retrofit, your base URL
- * provider must check SharedPrefs before falling back to `BuildConfig`:
- *
+ * startup. For example, if you use Hilt/Dagger with a `@Singleton` Retrofit, your base URL provider
+ * must check SharedPrefs before falling back to `BuildConfig`:
  * ```kotlin
  * fun resolveBaseUrl(context: Context): String {
  *     val prefs = context.getSharedPreferences("lens_env", Context.MODE_PRIVATE)

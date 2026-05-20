@@ -46,7 +46,6 @@ import com.behtar.lens.api.ComposableLensPlugin
 import com.behtar.lens.api.LensPlugin
 import com.behtar.lens.api.ViewLensPlugin
 
-
 /**
  * Main dashboard screen for Lens.
  *

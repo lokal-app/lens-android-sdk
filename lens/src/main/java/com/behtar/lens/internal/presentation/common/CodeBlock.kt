@@ -47,9 +47,9 @@ import kotlinx.coroutines.withContext
  * scrolling.
  *
  * Rendering is split into two async stages on [Dispatchers.Default] to keep the main thread free:
- * 1. Pretty-print (plain String → indented String) — result supplied by caller via [cachedFormatted]
- *    if already computed for this entry (ViewModel cache), otherwise computed here and handed back
- *    via [onFormatted] so the caller can cache it.
+ * 1. Pretty-print (plain String → indented String) — result supplied by caller via
+ *    [cachedFormatted] if already computed for this entry (ViewModel cache), otherwise computed
+ *    here and handed back via [onFormatted] so the caller can cache it.
  * 2. Syntax-highlight (indented String → AnnotatedString) — always runs off-main-thread via
  *    [produceState]. Shows a spinner until complete.
  *
@@ -70,7 +70,8 @@ fun CodeBlock(
 
   // Truncate only what we render — copy always uses the full original content.
   val displayContent =
-      if (content.length > NetworkViewModel.DISPLAY_LIMIT) content.take(NetworkViewModel.DISPLAY_LIMIT)
+      if (content.length > NetworkViewModel.DISPLAY_LIMIT)
+          content.take(NetworkViewModel.DISPLAY_LIMIT)
       else content
   val isTruncated = content.length > NetworkViewModel.DISPLAY_LIMIT
 
@@ -78,30 +79,31 @@ fun CodeBlock(
   // Otherwise: stage 1 (prettyPrint, skipped if cachedFormatted is set) and stage 2 (highlight)
   // both run off-main-thread via produceState, showing a spinner until complete.
   // The result is handed back via onHighlighted so the caller can cache it for future renders.
-  val highlightedText by produceState<AnnotatedString?>(
-      initialValue = cachedHighlighted,
-      key1 = displayContent,
-      key2 = cachedFormatted,
-      key3 = cachedHighlighted,
-  ) {
-    if (cachedHighlighted != null) {
-      value = cachedHighlighted
-      return@produceState
-    }
-    value =
-        withContext(Dispatchers.Default) {
-          val formatted =
-              cachedFormatted
-                  ?: run {
-                    val result = formatJson(displayContent)
-                    onFormatted?.invoke(result)
-                    result
-                  }
-          val highlighted = highlightJson(formatted, colors)
-          onHighlighted?.invoke(highlighted)
-          highlighted
+  val highlightedText by
+      produceState<AnnotatedString?>(
+          initialValue = cachedHighlighted,
+          key1 = displayContent,
+          key2 = cachedFormatted,
+          key3 = cachedHighlighted,
+      ) {
+        if (cachedHighlighted != null) {
+          value = cachedHighlighted
+          return@produceState
         }
-  }
+        value =
+            withContext(Dispatchers.Default) {
+              val formatted =
+                  cachedFormatted
+                      ?: run {
+                        val result = formatJson(displayContent)
+                        onFormatted?.invoke(result)
+                        result
+                      }
+              val highlighted = highlightJson(formatted, colors)
+              onHighlighted?.invoke(highlighted)
+              highlighted
+            }
+      }
 
   Column(
       modifier = modifier.fillMaxWidth().background(colors.background, RoundedCornerShape(8.dp))) {
@@ -109,8 +111,7 @@ fun CodeBlock(
             modifier =
                 Modifier.fillMaxWidth()
                     .background(
-                        colors.headerBackground,
-                        RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                        colors.headerBackground, RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically) {
               Text(
@@ -199,13 +200,15 @@ private fun prettyPrintJson(json: String): String {
       }
       !inString ->
           when (char) {
-            '{', '[' -> {
+            '{',
+            '[' -> {
               sb.append(char)
               indent++
               sb.append('\n')
               sb.append(indent(indent))
             }
-            '}', ']' -> {
+            '}',
+            ']' -> {
               indent--
               sb.append('\n')
               sb.append(indent(indent))
@@ -217,7 +220,10 @@ private fun prettyPrintJson(json: String): String {
               sb.append(indent(indent))
             }
             ':' -> sb.append(": ")
-            ' ', '\n', '\r', '\t' -> {} // skip whitespace outside strings
+            ' ',
+            '\n',
+            '\r',
+            '\t' -> {} // skip whitespace outside strings
             else -> sb.append(char)
           }
       else -> sb.append(char)
@@ -245,12 +251,18 @@ private fun highlightJson(json: String, colors: JsonSyntaxColors): AnnotatedStri
     }
 
     fun appendColored(text: String, color: androidx.compose.ui.graphics.Color) {
-      if (color != runColor) { flushRun(); runColor = color }
+      if (color != runColor) {
+        flushRun()
+        runColor = color
+      }
       runBuffer.append(text)
     }
 
     fun appendColored(char: Char, color: androidx.compose.ui.graphics.Color) {
-      if (color != runColor) { flushRun(); runColor = color }
+      if (color != runColor) {
+        flushRun()
+        runColor = color
+      }
       runBuffer.append(char)
     }
 
@@ -267,8 +279,16 @@ private fun highlightJson(json: String, colors: JsonSyntaxColors): AnnotatedStri
           i = endQuote
           isKey = !isKey
         }
-        char == ':' -> { flushRun(); appendColored(char, colors.text); isKey = false }
-        char == ',' -> { flushRun(); appendColored(char, colors.text); isKey = true }
+        char == ':' -> {
+          flushRun()
+          appendColored(char, colors.text)
+          isKey = false
+        }
+        char == ',' -> {
+          flushRun()
+          appendColored(char, colors.text)
+          isKey = true
+        }
         char in "{[]}" -> {
           flushRun()
           appendColored(char, colors.brace)
@@ -281,13 +301,19 @@ private fun highlightJson(json: String, colors: JsonSyntaxColors): AnnotatedStri
           i = numEnd - 1
         }
         json.startsWith("true", i) -> {
-          flushRun(); appendColored("true", colors.boolean); i += 3
+          flushRun()
+          appendColored("true", colors.boolean)
+          i += 3
         }
         json.startsWith("false", i) -> {
-          flushRun(); appendColored("false", colors.boolean); i += 4
+          flushRun()
+          appendColored("false", colors.boolean)
+          i += 4
         }
         json.startsWith("null", i) -> {
-          flushRun(); appendColored("null", colors.nullValue); i += 3
+          flushRun()
+          appendColored("null", colors.nullValue)
+          i += 3
         }
         else -> appendColored(char, colors.text)
       }

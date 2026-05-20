@@ -67,13 +67,11 @@ fun EventListView(
           item { Spacer(modifier = Modifier.height(8.dp)) }
 
           items(events, key = { it.id }) { event ->
-            val validation = remember(event.id) {
-              FirebaseAnalyticsValidator.validateEvent(event)
-            }
+            val validation = remember(event.id) { FirebaseAnalyticsValidator.validateEvent(event) }
             EventCard(
-              event = event,
-              hasFirebaseViolations = validation.hasViolations,
-              onClick = { onEventClick(event) },
+                event = event,
+                hasFirebaseViolations = validation.hasViolations,
+                onClick = { onEventClick(event) },
             )
           }
 
@@ -88,10 +86,11 @@ private fun EventCard(
     hasFirebaseViolations: Boolean,
     onClick: () -> Unit,
 ) {
-  val cardColor = when {
-    event.isRevenueEvent -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-    else -> MaterialTheme.colorScheme.surfaceVariant
-  }
+  val cardColor =
+      when {
+        event.isRevenueEvent -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+      }
 
   Card(
       modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -101,12 +100,7 @@ private fun EventCard(
     // which lets the stripe Box use fillMaxHeight() reliably inside the card.
     Row(modifier = Modifier.height(IntrinsicSize.Min)) {
       if (hasFirebaseViolations) {
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .fillMaxHeight()
-                .background(FirebaseWarningAmber)
-        )
+        Box(modifier = Modifier.width(4.dp).fillMaxHeight().background(FirebaseWarningAmber))
       }
       Column(modifier = Modifier.padding(12.dp)) {
         // Top row: Event name, warning icon (if violations), destination badge

@@ -126,34 +126,35 @@ fun DeepLinkTesterScreen(provider: DeepLinkProvider? = null) {
                 }
               }
 
-              if (quickLinks.isNotEmpty()) item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors =
-                        CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                      Column {
-                        quickLinks.forEachIndexed { index, deepLink ->
-                          QuickLinkRow(
-                              path = deepLink.path,
-                              label = deepLink.label,
-                              onClick = {
-                                val url = normalizeDeepLink(context, deepLink.path)
-                                if (url != null) {
-                                  testDeepLink(context, url)
-                                  if (!history.contains(url)) {
-                                    history.add(0, url)
-                                    if (history.size > 10) history.removeLast()
-                                  }
-                                }
-                              })
-                          if (index < quickLinks.lastIndex) {
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+              if (quickLinks.isNotEmpty())
+                  item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors =
+                            CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                          Column {
+                            quickLinks.forEachIndexed { index, deepLink ->
+                              QuickLinkRow(
+                                  path = deepLink.path,
+                                  label = deepLink.label,
+                                  onClick = {
+                                    val url = normalizeDeepLink(context, deepLink.path)
+                                    if (url != null) {
+                                      testDeepLink(context, url)
+                                      if (!history.contains(url)) {
+                                        history.add(0, url)
+                                        if (history.size > 10) history.removeLast()
+                                      }
+                                    }
+                                  })
+                              if (index < quickLinks.lastIndex) {
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                              }
+                            }
                           }
                         }
-                      }
-                    }
-              }
+                  }
 
               // History Section
               if (history.isNotEmpty()) {

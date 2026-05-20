@@ -213,13 +213,15 @@ private fun ParameterRow(
 ) {
   val hasViolations = violations.isNotEmpty()
   Surface(
-      modifier = Modifier
-          .fillMaxWidth()
-          .then(
-              if (hasViolations) Modifier.border(1.dp, FirebaseWarningAmber, MaterialTheme.shapes.small)
-              else Modifier
-          ),
-      color = if (hasViolations) FirebaseWarningAmberContainer else MaterialTheme.colorScheme.surfaceVariant,
+      modifier =
+          Modifier.fillMaxWidth()
+              .then(
+                  if (hasViolations)
+                      Modifier.border(1.dp, FirebaseWarningAmber, MaterialTheme.shapes.small)
+                  else Modifier),
+      color =
+          if (hasViolations) FirebaseWarningAmberContainer
+          else MaterialTheme.colorScheme.surfaceVariant,
       shape = MaterialTheme.shapes.small,
   ) {
     Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
@@ -233,7 +235,8 @@ private fun ParameterRow(
               style = MaterialTheme.typography.labelMedium,
               fontFamily = FontFamily.Monospace,
               fontWeight = FontWeight.Bold,
-              color = if (hasViolations) FirebaseWarningAmber else MaterialTheme.colorScheme.primary,
+              color =
+                  if (hasViolations) FirebaseWarningAmber else MaterialTheme.colorScheme.primary,
           )
           if (hasViolations) {
             Icon(
@@ -281,11 +284,11 @@ private fun ParameterRow(
 @Composable
 private fun FirebaseViolationsBanner(validation: EventValidationResult) {
   Column(
-      modifier = Modifier
-          .fillMaxWidth()
-          .background(FirebaseWarningAmberContainer, RoundedCornerShape(8.dp))
-          .border(1.dp, FirebaseWarningAmber, RoundedCornerShape(8.dp))
-          .padding(12.dp),
+      modifier =
+          Modifier.fillMaxWidth()
+              .background(FirebaseWarningAmberContainer, RoundedCornerShape(8.dp))
+              .border(1.dp, FirebaseWarningAmber, RoundedCornerShape(8.dp))
+              .padding(12.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     Row(

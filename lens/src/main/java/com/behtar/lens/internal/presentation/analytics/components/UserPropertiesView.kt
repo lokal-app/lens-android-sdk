@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -73,9 +72,8 @@ fun UserPropertiesView(properties: List<UserPropertyEntry>, modifier: Modifier =
           item { Spacer(modifier = Modifier.height(8.dp)) }
 
           items(properties, key = { it.id }) { property ->
-            val validation = remember(property.id) {
-              FirebaseAnalyticsValidator.validateUserProperty(property)
-            }
+            val validation =
+                remember(property.id) { FirebaseAnalyticsValidator.validateUserProperty(property) }
             UserPropertyCard(property = property, hasFirebaseViolations = validation.hasViolations)
           }
 
@@ -89,7 +87,8 @@ private fun UserPropertyCard(property: UserPropertyEntry, hasFirebaseViolations:
   var isExpanded by remember { mutableStateOf(false) }
   val hasMoreProperties = property.properties.size > 5
   val context = LocalContext.current
-  val validation = remember(property.id) { FirebaseAnalyticsValidator.validateUserProperty(property) }
+  val validation =
+      remember(property.id) { FirebaseAnalyticsValidator.validateUserProperty(property) }
 
   Card(
       modifier = Modifier.fillMaxWidth().animateContentSize(),
@@ -97,148 +96,142 @@ private fun UserPropertyCard(property: UserPropertyEntry, hasFirebaseViolations:
   ) {
     Row(modifier = Modifier.height(IntrinsicSize.Min)) {
       if (hasFirebaseViolations) {
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .fillMaxHeight()
-                .background(FirebaseWarningAmber)
-        )
+        Box(modifier = Modifier.width(4.dp).fillMaxHeight().background(FirebaseWarningAmber))
       }
       Column(modifier = Modifier.padding(12.dp)) {
-          // Header row
-          Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)) {
-                      Text(
-                          text = property.userId ?: "Anonymous",
-                          style = MaterialTheme.typography.titleSmall,
-                          fontWeight = FontWeight.Bold,
-                          fontFamily = FontFamily.Monospace,
-                          color =
-                              if (property.userId != null) {
-                                MaterialTheme.colorScheme.primary
-                              } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                              })
+        // Header row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+              Row(
+                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = property.userId ?: "Anonymous",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color =
+                            if (property.userId != null) {
+                              MaterialTheme.colorScheme.primary
+                            } else {
+                              MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            })
 
-                      // Only show destination for single-SDK events
-                      property.displayDestination?.let { destination ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = MaterialTheme.shapes.extraSmall) {
-                              Text(
-                                  text = destination,
-                                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                  style = MaterialTheme.typography.labelSmall)
-                            }
-                      }
-                    }
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                      Text(
-                          text = property.formattedTime,
-                          style = MaterialTheme.typography.bodySmall,
-                          fontFamily = FontFamily.Monospace,
-                          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
-
-                      // Copy button
-                      IconButton(
-                          onClick = {
-                            val text = buildString {
-                              appendLine("User ID: ${property.userId ?: "Anonymous"}")
-                              appendLine("Time: ${property.formattedTime}")
-                              appendLine(
-                                  "Destinations: ${property.destinations.joinToString(", ")}")
-                              appendLine("Properties:")
-                              property.properties.forEach { (key, value) ->
-                                appendLine("  $key: ${value?.toString() ?: "null"}")
-                              }
-                            }
-                            copyToClipboard(context, text, "User properties")
-                          },
-                          modifier = Modifier.size(32.dp)) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy properties",
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary)
+                    // Only show destination for single-SDK events
+                    property.displayDestination?.let { destination ->
+                      Surface(
+                          color = MaterialTheme.colorScheme.secondaryContainer,
+                          shape = MaterialTheme.shapes.extraSmall) {
+                            Text(
+                                text = destination,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall)
                           }
                     }
-              }
+                  }
 
-          // Properties
-          if (property.properties.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
+              Row(
+                  horizontalArrangement = Arrangement.spacedBy(4.dp),
+                  verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = property.formattedTime,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
 
-            val propertiesToShow =
-                if (isExpanded || !hasMoreProperties) {
-                  property.properties.entries.toList()
-                } else {
-                  property.properties.entries.take(5)
-                }
-
-            propertiesToShow.forEach { (key, value) ->
-              val propViolations = validation.propertyViolations[key] ?: emptyList()
-              Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                  Text(
-                      text = "$key:",
-                      style = MaterialTheme.typography.bodySmall,
-                      fontFamily = FontFamily.Monospace,
-                      fontWeight = FontWeight.Bold,
-                      color = if (propViolations.isNotEmpty()) FirebaseWarningAmber
-                              else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                  )
-                  Text(
-                      text = value?.toString() ?: "null",
-                      style = MaterialTheme.typography.bodySmall,
-                      fontFamily = FontFamily.Monospace,
-                      color = MaterialTheme.colorScheme.onSurfaceVariant,
-                      maxLines = if (isExpanded) Int.MAX_VALUE else 1,
-                      overflow = TextOverflow.Ellipsis,
-                      modifier = Modifier.weight(1f),
-                  )
-                }
-                propViolations.forEach { violation ->
-                  Text(
-                      text = "⚠ ${violation.message()}",
-                      style = MaterialTheme.typography.labelSmall,
-                      color = FirebaseWarningAmber,
-                  )
-                }
-              }
+                    // Copy button
+                    IconButton(
+                        onClick = {
+                          val text = buildString {
+                            appendLine("User ID: ${property.userId ?: "Anonymous"}")
+                            appendLine("Time: ${property.formattedTime}")
+                            appendLine("Destinations: ${property.destinations.joinToString(", ")}")
+                            appendLine("Properties:")
+                            property.properties.forEach { (key, value) ->
+                              appendLine("  $key: ${value?.toString() ?: "null"}")
+                            }
+                          }
+                          copyToClipboard(context, text, "User properties")
+                        },
+                        modifier = Modifier.size(32.dp)) {
+                          Icon(
+                              imageVector = Icons.Default.ContentCopy,
+                              contentDescription = "Copy properties",
+                              modifier = Modifier.size(16.dp),
+                              tint = MaterialTheme.colorScheme.primary)
+                        }
+                  }
             }
 
-            // Show more/less toggle
-            if (hasMoreProperties) {
-              Spacer(modifier = Modifier.height(4.dp))
-              Text(
-                  text =
-                      if (isExpanded) {
-                        "Show less"
-                      } else {
-                        "... and ${property.properties.size - 5} more (tap to expand)"
-                      },
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.primary,
-                  textDecoration = TextDecoration.Underline,
-                  modifier =
-                      Modifier.clickable { isExpanded = !isExpanded }.padding(vertical = 4.dp))
+        // Properties
+        if (property.properties.isNotEmpty()) {
+          Spacer(modifier = Modifier.height(8.dp))
+
+          val propertiesToShow =
+              if (isExpanded || !hasMoreProperties) {
+                property.properties.entries.toList()
+              } else {
+                property.properties.entries.take(5)
+              }
+
+          propertiesToShow.forEach { (key, value) ->
+            val propViolations = validation.propertyViolations[key] ?: emptyList()
+            Column(modifier = Modifier.fillMaxWidth()) {
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                Text(
+                    text = "$key:",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color =
+                        if (propViolations.isNotEmpty()) FirebaseWarningAmber
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                )
+                Text(
+                    text = value?.toString() ?: "null",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = if (isExpanded) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+              }
+              propViolations.forEach { violation ->
+                Text(
+                    text = "⚠ ${violation.message()}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = FirebaseWarningAmber,
+                )
+              }
             }
+          }
+
+          // Show more/less toggle
+          if (hasMoreProperties) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text =
+                    if (isExpanded) {
+                      "Show less"
+                    } else {
+                      "... and ${property.properties.size - 5} more (tap to expand)"
+                    },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline,
+                modifier = Modifier.clickable { isExpanded = !isExpanded }.padding(vertical = 4.dp))
           }
         }
       }
     }
+  }
 }
 
 /** Copies text to clipboard and shows a toast. */
