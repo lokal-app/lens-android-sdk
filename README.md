@@ -13,38 +13,9 @@ Inspect network traffic, view exceptions, monitor performance, edit SharedPrefer
 
 ## Setup
 
-### 1. Add the GitHub Packages repository
+### 1. Add dependencies
 
-Add to your project's `settings.gradle.kts`:
-
-```kotlin
-dependencyResolutionManagement {
-    repositories {
-        // ... your other repositories
-        maven {
-            url = uri("https://maven.pkg.github.com/lokal-app/lens-android-sdk")
-            credentials {
-                username = providers.gradleProperty("GITHUB_USERNAME").orNull ?: ""
-                password = providers.gradleProperty("GITHUB_TOKEN").orNull ?: ""
-            }
-            content {
-                includeGroup("com.behtar.lens")
-            }
-        }
-    }
-}
-```
-
-Add credentials to `~/.gradle/gradle.properties` (one-time setup):
-
-```properties
-GITHUB_USERNAME=<provided-by-sdk-maintainer>
-GITHUB_TOKEN=<provided-by-sdk-maintainer>
-```
-
-> **Credentials:** Contact the SDK maintainer (@AnuragJha-AJ) to get the shared read-only token. Do not generate your own — a single shared token is used across the team.
-
-### 2. Add dependencies
+Lens is published on Maven Central — no repository credentials needed.
 
 #### Application modules (`:app`)
 
@@ -52,16 +23,16 @@ In your `app/build.gradle.kts`, use build-type-specific configurations:
 
 ```kotlin
 // app/build.gradle.kts
-debugImplementation("com.behtar.lens:lens:1.1.1")
-releaseImplementation("com.behtar.lens:lens-noop:1.1.1")
+debugImplementation("com.lokalapps.lens:lens:1.2.0")
+releaseImplementation("com.lokalapps.lens:lens-noop:1.2.0")
 ```
 
 If you have a `releaseDebug` build type (a release-signed APK with debug tools enabled), include Lens there too:
 
 ```kotlin
-debugImplementation("com.behtar.lens:lens:1.1.1")
-"releaseDebugImplementation"("com.behtar.lens:lens:1.1.1")
-releaseImplementation("com.behtar.lens:lens-noop:1.1.1")
+debugImplementation("com.lokalapps.lens:lens:1.2.0")
+"releaseDebugImplementation"("com.lokalapps.lens:lens:1.2.0")
+releaseImplementation("com.lokalapps.lens:lens-noop:1.2.0")
 ```
 
 #### Library modules (`:core`, `:network`, etc.)
@@ -72,21 +43,21 @@ Use `compileOnly` for the noop so it only provides the API surface at compile ti
 
 ```kotlin
 // core/build.gradle.kts or any library module
-compileOnly("com.behtar.lens:lens-noop:1.1.1")   // compile-time API surface only
-debugImplementation("com.behtar.lens:lens:1.1.1")
-"releaseDebugImplementation"("com.behtar.lens:lens:1.1.1")
-releaseImplementation("com.behtar.lens:lens-noop:1.1.1")
+compileOnly("com.lokalapps.lens:lens-noop:1.2.0")   // compile-time API surface only
+debugImplementation("com.lokalapps.lens:lens:1.2.0")
+"releaseDebugImplementation"("com.lokalapps.lens:lens:1.2.0")
+releaseImplementation("com.lokalapps.lens:lens-noop:1.2.0")
 ```
 
 > **Why `compileOnly`?** In library modules without product flavours, `implementation` adds the dependency to every variant's runtime classpath. When both `lens-noop` (from `implementation`) and `lens` (from `debugImplementation`) land on the debug runtime classpath simultaneously, the AGP `checkDuplicateClasses` task fails. `compileOnly` contributes only to the compile classpath — the runtime artifact is supplied by whichever consuming module (`:app`) resolves the correct variant.
 
-### 3. Initialize
+### 2. Initialize
 
 Call `Lens.install()` in your `Application.onCreate()`. It takes an `Application` instance — not a `Context`:
 
 ```kotlin
-import com.behtar.lens.api.ActivationGesture
-import com.behtar.lens.api.Lens
+import com.lokalapps.lens.api.ActivationGesture
+import com.lokalapps.lens.api.Lens
 
 class MyApp : Application() {
     override fun onCreate() {
@@ -99,7 +70,7 @@ class MyApp : Application() {
 }
 ```
 
-### 4. Add the network interceptor
+### 3. Add the network interceptor
 
 ```kotlin
 val client = OkHttpClient.Builder()
@@ -115,9 +86,9 @@ val client = OkHttpClient.Builder()
 
 | Artifact | Purpose | Use with |
 |----------|---------|----------|
-| `com.behtar.lens:lens` | Full SDK — all plugins, interceptors, and UI | `debugImplementation` |
-| `com.behtar.lens:lens-noop` | No-op stubs — identical API surface, zero behavior | `releaseImplementation` / `compileOnly` in library modules |
-| `com.behtar.lens:lens-api` | Pure-Kotlin interfaces — no Android dependency | Transitive (pulled automatically) |
+| `com.lokalapps.lens:lens` | Full SDK — all plugins, interceptors, and UI | `debugImplementation` |
+| `com.lokalapps.lens:lens-noop` | No-op stubs — identical API surface, zero behavior | `releaseImplementation` / `compileOnly` in library modules |
+| `com.lokalapps.lens:lens-api` | Pure-Kotlin interfaces — no Android dependency | Transitive (pulled automatically) |
 
 ---
 
@@ -125,7 +96,7 @@ val client = OkHttpClient.Builder()
 
 | Plugin | Description |
 |--------|-------------|
-| **Network Inspector** | HTTP request/response viewer with cURL export, HAR export, header redaction |
+| **Network Inspector** | HTTP request/response viewer with cURL export, header redaction |
 | **Global Search** | Cross-plugin search across all log types with 300ms debounce |
 | **App Info** | Build info, device details, session metadata |
 | **Performance Monitor** | Real-time FPS (Choreographer), memory usage, jank detection with sparkline graphs |
@@ -155,9 +126,9 @@ All configuration is done through the DSL passed to `Lens.install()`. Provider-b
 wired via **functions** on the builder — not property assignment:
 
 ```kotlin
-import com.behtar.lens.api.ActivationGesture
-import com.behtar.lens.api.HeaderRedactor
-import com.behtar.lens.api.Lens
+import com.lokalapps.lens.api.ActivationGesture
+import com.lokalapps.lens.api.HeaderRedactor
+import com.lokalapps.lens.api.Lens
 
 Lens.install(this) {
     // Activation gesture: THREE_TAP, FIVE_TAP (default), LONG_PRESS, or NONE
@@ -363,8 +334,8 @@ val listener = Lens.wrapWebSocketListener(myListener)
 ### Compose Plugin
 
 ```kotlin
-import com.behtar.lens.api.ComposableLensPlugin
-import com.behtar.lens.api.Lens
+import com.lokalapps.lens.api.ComposableLensPlugin
+import com.lokalapps.lens.api.Lens
 
 class MyDebugPlugin : ComposableLensPlugin {
     override val id = "my_debug"
@@ -388,8 +359,8 @@ Lens.registerPlugin(MyDebugPlugin())
 For non-Compose consumers (React Native native modules, Java apps):
 
 ```kotlin
-import com.behtar.lens.api.LensExperimental
-import com.behtar.lens.api.ViewLensPlugin
+import com.lokalapps.lens.api.LensExperimental
+import com.lokalapps.lens.api.ViewLensPlugin
 
 @OptIn(LensExperimental::class)
 class LegacyPlugin : ViewLensPlugin {
@@ -455,7 +426,6 @@ Consumer rules are bundled — no manual configuration needed.
 | Database inspector | Yes | No | Yes | No |
 | Global search | Yes | No | No | No |
 | Custom plugin API | Yes | No | Yes | Yes |
-| HAR export | No | No | No | No |
 | No-op release variant | Yes | Yes | N/A | Yes |
 | No external tools needed | Yes | Yes | No (ADB) | Yes |
 | No DI framework required | Yes | Yes | Yes | No |
@@ -482,16 +452,14 @@ cd lens-android-sdk
 ./gradlew publishToMavenLocal
 ```
 
-Then temporarily add `mavenLocal()` **above** the GitHub Packages repository in your app's `settings.gradle.kts`. Maven Local takes priority, so your local build will be used.
+Then temporarily add `mavenLocal()` **above** `mavenCentral()` in your app's `settings.gradle.kts`. Maven Local takes priority, so your local build will be used.
 
 ```kotlin
 // settings.gradle.kts — local development only, do not commit
 repositories {
     mavenLocal()  // must be first
-    maven {
-        url = uri("https://maven.pkg.github.com/lokal-app/lens-android-sdk")
-        // ...
-    }
+    mavenCentral()
+    google()
 }
 ```
 
@@ -500,7 +468,7 @@ repositories {
 ## License
 
 ```
-Copyright 2024 Behtar Technologies
+Copyright 2026 Lokal
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

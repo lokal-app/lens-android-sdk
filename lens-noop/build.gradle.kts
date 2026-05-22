@@ -1,12 +1,11 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
-    `maven-publish`
+    alias(libs.plugins.maven.publish)
 }
 
 android {
-    namespace = "com.behtar.lens"
-    compileSdk = 36
+    namespace = "com.lokalapps.lens"
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 24
@@ -21,20 +20,15 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-        }
-    }
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -55,39 +49,59 @@ dependencies {
     compileOnly(libs.androidx.annotation)
 }
 
-afterEvaluate {
-    publishing {
-        repositories {
-            maven {
-                name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/lokal-app/lens-android-sdk")
-                credentials {
-                    username = System.getenv("GITHUB_ACTOR") ?: providers.gradleProperty("GITHUB_USERNAME").orNull
-                    password = System.getenv("GITHUB_TOKEN") ?: providers.gradleProperty("GITHUB_TOKEN").orNull
-                }
+publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/lokal-app/lens-android-sdk")
+            credentials {
+                username =
+                    System.getenv("GITHUB_ACTOR")
+                        ?: providers.gradleProperty("GITHUB_USERNAME").orNull
+                password =
+                    System.getenv("GITHUB_TOKEN")
+                        ?: providers.gradleProperty("GITHUB_TOKEN").orNull
             }
         }
-        publications {
-            create<MavenPublication>("release") {
-                from(components["release"])
+    }
+}
 
-                groupId = project.property("LENS_GROUP") as String
-                artifactId = "lens-noop"
-                version = project.property("LENS_VERSION") as String
+mavenPublishing {
+    publishToMavenCentral(automaticRelease = true)
+    signAllPublications()
 
-                pom {
-                    name.set("Lens No-Op")
-                    description.set("No-op stubs for Lens Android debug SDK. Use in release builds for zero overhead.")
-                    url.set("https://github.com/lokal-app/lens-android-sdk")
+    coordinates(
+        groupId = project.property("LENS_GROUP") as String,
+        artifactId = "lens-noop",
+        version = project.property("LENS_VERSION") as String,
+    )
 
-                    licenses {
-                        license {
-                            name.set("The Apache License, Version 2.0")
-                            url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
-                        }
-                    }
-                }
+    pom {
+        name.set("Lens No-Op")
+        description.set("No-op stubs for Lens Android debug SDK. Use in release builds for zero overhead.")
+        inceptionYear.set("2026")
+        url.set("https://github.com/lokal-app/lens-android-sdk")
+
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                distribution.set("repo")
             }
+        }
+
+        developers {
+            developer {
+                id.set("lokal-app")
+                name.set("Lokal")
+                url.set("https://github.com/lokal-app")
+            }
+        }
+
+        scm {
+            url.set("https://github.com/lokal-app/lens-android-sdk")
+            connection.set("scm:git:git://github.com/lokal-app/lens-android-sdk.git")
+            developerConnection.set("scm:git:ssh://git@github.com/lokal-app/lens-android-sdk.git")
         }
     }
 }
