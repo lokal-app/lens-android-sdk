@@ -33,6 +33,7 @@ publishing {
 }
 
 mavenPublishing {
+    configure(com.vanniktech.maven.publish.JavaLibrary(javadocJar = com.vanniktech.maven.publish.JavadocJar.Javadoc(), sourcesJar = true))
     publishToMavenCentral(automaticRelease = true)
     signAllPublications()
 
