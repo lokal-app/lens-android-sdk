@@ -44,27 +44,20 @@ jobs:
           KEY_PASS: ${{ secrets.GPG_SIGNING_PASSWORD }}
 
       - name: Publish to Maven Central
-        run: |
-          ./gradlew publishAllPublicationsToMavenCentralRepository \
-            --no-configuration-cache \
-            --stacktrace \
-            -PsigningInMemoryKey="${{ secrets.GPG_SIGNING_KEY }}" \
-            -PsigningInMemoryKeyId="${{ secrets.GPG_SIGNING_KEY_ID }}" \
-            -PsigningInMemoryKeyPassword="${{ secrets.GPG_SIGNING_PASSWORD }}"
+        run: ./gradlew publishAllPublicationsToMavenCentralRepository --no-configuration-cache --stacktrace
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.GPG_SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_SIGNING_PASSWORD }}
 
       - name: Publish to GitHub Packages
-        run: |
-          ./gradlew :lens-api:publishAllPublicationsToGitHubPackagesRepository \
-            :lens:publishAllPublicationsToGitHubPackagesRepository \
-            :lens-noop:publishAllPublicationsToGitHubPackagesRepository \
-            --no-configuration-cache \
-            -PsigningInMemoryKey="${{ secrets.GPG_SIGNING_KEY }}" \
-            -PsigningInMemoryKeyId="${{ secrets.GPG_SIGNING_KEY_ID }}" \
-            -PsigningInMemoryKeyPassword="${{ secrets.GPG_SIGNING_PASSWORD }}"
+        run: ./gradlew :lens-api:publishAllPublicationsToGitHubPackagesRepository :lens:publishAllPublicationsToGitHubPackagesRepository :lens-noop:publishAllPublicationsToGitHubPackagesRepository --no-configuration-cache
         env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.GPG_SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_SIGNING_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts to release
