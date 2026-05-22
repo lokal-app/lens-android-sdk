@@ -33,6 +33,16 @@ jobs:
       - name: Run unit tests
         run: ./gradlew :lens:testDebugUnitTest
 
+      - name: Check signing secrets
+        run: |
+          if [ -z "$KEY" ]; then echo "GPG_SIGNING_KEY is EMPTY"; else echo "GPG_SIGNING_KEY length: ${#KEY}"; fi
+          if [ -z "$KEY_ID" ]; then echo "GPG_SIGNING_KEY_ID is EMPTY"; else echo "GPG_SIGNING_KEY_ID: $KEY_ID"; fi
+          if [ -z "$KEY_PASS" ]; then echo "GPG_SIGNING_PASSWORD is EMPTY"; else echo "GPG_SIGNING_PASSWORD is set"; fi
+        env:
+          KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          KEY_ID: ${{ secrets.GPG_SIGNING_KEY_ID }}
+          KEY_PASS: ${{ secrets.GPG_SIGNING_PASSWORD }}
+
       - name: Publish to Maven Central
         run: ./gradlew publishAllPublicationsToMavenCentralRepository --no-configuration-cache
         env:
