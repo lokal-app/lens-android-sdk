@@ -47,6 +47,7 @@ jobs:
         run: |
           ./gradlew publishAllPublicationsToMavenCentralRepository \
             --no-configuration-cache \
+            --stacktrace \
             -PsigningInMemoryKey="${{ secrets.GPG_SIGNING_KEY }}" \
             -PsigningInMemoryKeyId="${{ secrets.GPG_SIGNING_KEY_ID }}" \
             -PsigningInMemoryKeyPassword="${{ secrets.GPG_SIGNING_PASSWORD }}"
