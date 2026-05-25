@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.lokalapps.lens"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
